@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PRIME Slitter Optimizer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column of numbered steps (coil → order → flats → plan), plan below as stacked coil bars. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #16202a;
+  --muted: #5b6876;
+  --line: #d3d9e0;
+  --accent: #c8561a;
+  --accent-ink: #ffffff;
+  --strip: #3d5a75;
+  --strip-2: #567596;
+  --strip-ink: #ffffff;
+  --rack: #2c8a66;
+  --rack-soft: #dff1e9;
+  --scrap: #b8433a;
+  --scrap-soft: #f6e3e1;
+  --warn-soft: #fff1e0;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151b; --surface: #18212a; --ink: #e6ebf0; --muted: #95a3b1; --line: #2b3743;
+    --accent: #f07a35; --accent-ink: #1a0d05; --strip: #5d81a5; --strip-2: #7898b8; --strip-ink: #0b1218;
+    --rack: #46b48a; --rack-soft: #15322a; --scrap: #e0675c; --scrap-soft: #3a1f1d; --warn-soft: #3a2a17;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151b; --surface: #18212a; --ink: #e6ebf0; --muted: #95a3b1; --line: #2b3743;
+  --accent: #f07a35; --accent-ink: #1a0d05; --strip: #5d81a5; --strip-2: #7898b8; --strip-ink: #0b1218;
+  --rack: #46b48a; --rack-soft: #15322a; --scrap: #e0675c; --scrap-soft: #3a1f1d; --warn-soft: #3a2a17;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.45 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header.top { padding-block: 22px 4px; display: flex; flex-direction: column; gap: 2px; }
+.brand { font: 700 2rem/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.brand span { color: var(--accent); }
+.tag { color: var(--muted); margin: 0; }
+section.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h2 { font: 700 1.25rem/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .04em; margin: 0; display: flex; align-items: center; gap: 10px; }
+h2 .step { font: 500 .8rem/1 var(--font-mono); color: var(--accent-ink); background: var(--accent); border-radius: 3px; padding: 4px 6px; }
+h3 { font: 700 1.05rem/1.2 var(--font-display); text-transform: uppercase; letter-spacing: .05em; margin: 0; }
+label, .lbl { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+input, select, button { font: inherit; color: inherit; }
+input[type=text], input[type=number], select {
+  width: 100%; min-width: 0; padding: 10px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg); font-size: 1rem;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid2 .full { grid-column: 1 / -1; }
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label.opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--bg);
+  text-transform: none; letter-spacing: 0; color: var(--ink);
+}
+.seg label.opt b { font: 700 1.5rem/1 var(--font-display); }
+.seg label.opt small { color: var(--muted); font-size: .8rem; font-weight: 500; }
+.seg input:checked + label.opt { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.seg input:focus-visible + label.opt { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.rowhead, .row { display: grid; grid-template-columns: 2rem 1.3fr 1fr 1fr 1fr 2.4rem; gap: 6px; align-items: center; }
+.rowhead span { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.row .n { font: 500 .85rem var(--font-mono); color: var(--muted); text-align: center; }
+.row input { padding: 9px 8px; font-variant-numeric: tabular-nums; }
+.row.bad input.badf { border-color: var(--scrap); background: var(--scrap-soft); }
+.iconbtn { border: 1px solid var(--line); background: transparent; border-radius: var(--radius); height: 40px; cursor: pointer; color: var(--muted); font-size: 1.2rem; line-height: 1; }
+.iconbtn:hover { color: var(--scrap); border-color: var(--scrap); }
+.hint { color: var(--muted); font-size: .85rem; margin: 0; }
+
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 10px 16px; cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font: 700 1.2rem/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; padding: 14px 22px; flex: 1 1 auto; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; }
+
+.banner { border-radius: var(--radius); padding: 10px 12px; font-size: .92rem; background: var(--warn-soft); border: 1px solid var(--line); }
+.banner.err { background: var(--scrap-soft); border-color: var(--scrap); }
+.banner ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* results */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .compare { grid-template-columns: 1fr; } }
+.opt-card { text-align: left; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.opt-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--surface); }
+.opt-card .ot { font: 700 1.1rem/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .04em; }
+.opt-card .od { color: var(--muted); font-size: .85rem; }
+.opt-card .of { font: 500 1.05rem var(--font-mono); font-variant-numeric: tabular-nums; }
+.pick { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+.savings { font-weight: 600; }
+
+.plan-head { display: flex; flex-wrap: wrap; gap: 6px 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.plan-head div { display: flex; flex-direction: column; min-width: 0; }
+.plan-head b { font-weight: 600; overflow-wrap: anywhere; }
+.plan-title { font: 700 1.5rem/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .03em; margin: 0; }
+.chosen { display: inline-block; background: var(--accent); color: var(--accent-ink); font: 700 .9rem/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; padding: 5px 8px; border-radius: 3px; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .v { font: 700 1.7rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat .s { font: 500 .78rem var(--font-mono); color: var(--muted); }
+
+.batch { border-top: 2px solid var(--ink); padding-top: 10px; display: flex; flex-direction: column; gap: 12px; break-inside: avoid; }
+.batch-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
+.batch-h .cl { font: 700 1.35rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .03em; }
+.batch-h .meta { font: 500 .85rem var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pat { display: grid; grid-template-columns: 4.2rem 1fr; gap: 10px; align-items: start; break-inside: avoid; }
+.runs { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 4px; height: 100%; }
+.runs b { font: 700 1.8rem/1 var(--font-display); }
+.runs small { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.pat-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bar { display: flex; height: 46px; border: 1px solid var(--ink); border-radius: 3px; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.seg-s { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; font: 500 .8rem var(--font-mono); white-space: nowrap; border-right: 1px solid var(--surface); }
+.seg-s:last-child { border-right: 0; }
+.seg-s.o { background: var(--strip); color: var(--strip-ink); }
+.seg-s.o.alt { background: var(--strip-2); }
+.seg-s.r { background: var(--rack); color: var(--strip-ink); }
+.seg-s.x { color: var(--scrap); background: repeating-linear-gradient(135deg, var(--scrap-soft) 0 6px, transparent 6px 11px); }
+.strips { font: 500 .82rem/1.5 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.strips .rk { color: var(--rack); font-weight: 600; }
+.strips .sc { color: var(--scrap); }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .82rem; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.note { font-size: .85rem; color: var(--muted); margin: 0; }
+.note b { color: var(--ink); }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: .92rem; }
+th { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-size: .88rem; }
+tr.grp td { background: var(--bg); font-weight: 600; border-bottom: 1px solid var(--ink); }
+.bonus { color: var(--accent); font-weight: 600; font-size: .8rem; }
+.rack-pill { display: inline-block; background: var(--rack-soft); color: var(--rack); font-weight: 600; padding: 1px 7px; border-radius: 3px; font-size: .78rem; }
+
+details.rules summary { cursor: pointer; font-weight: 600; }
+details.rules ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: .9rem; display: flex; flex-direction: column; gap: 4px; }
+.copybox { width: 100%; min-height: 160px; font: 500 .8rem/1.4 var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); padding: 10px; }
+.foot { color: var(--muted); font-size: .8rem; text-align: center; }
+
+.print-only { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; color: #000; padding: 0; font-size: 12px; }
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  section.card { border: 0; padding: 0; }
+  .wrap { max-width: none; gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top no-print">
+    <h1 class="brand"><span>PRIME</span> Slitter Optimizer</h1>
+    <p class="tag">Trim order in, slitter cut plan out.</p>
+  </header>
+
+  <div id="exampleBanner" class="banner no-print" hidden>
+    This is an example order so you can see how a plan looks. <button type="button" class="btn ghost" id="newOrder2" style="padding:4px 10px;margin-left:6px">Start a new order</button>
+  </div>
+
+  <section class="card no-print" aria-labelledby="h-coil">
+    <h2 id="h-coil"><span class="step">1</span>Coil width</h2>
+    <div class="seg" role="radiogroup" aria-label="Coil width">
+      <input type="radio" name="coil" id="coil41" value="41"><label class="opt" for="coil41"><b>41"</b><small>Trim shop</small></label>
+      <input type="radio" name="coil" id="coil43" value="43"><label class="opt" for="coil43"><b>43"</b><small>Sheet shop</small></label>
+      <input type="radio" name="coil" id="coilCustom" value="custom"><label class="opt" for="coilCustom"><b>Custom</b><small>Any width</small></label>
+    </div>
+    <div class="field" id="customWrap" hidden>
+      <label for="customW">Custom coil width (inches)</label>
+      <input type="text" id="customW" inputmode="decimal" placeholder="e.g. 48">
+    </div>
+  </section>
+
+  <section class="card no-print" aria-labelledby="h-order">
+    <h2 id="h-order"><span class="step">2</span>Order</h2>
+    <div class="grid2">
+      <div class="field"><label for="orderNo">Order number</label><input type="text" id="orderNo" autocomplete="off"></div>
+      <div class="field"><label for="customer">Customer</label><input type="text" id="customer" autocomplete="off"></div>
+      <div class="field full"><label for="color">Color</label><select id="color"></select></div>
+      <div class="field full" id="colorOtherWrap" hidden><label for="colorOther">Color name</label><input type="text" id="colorOther" autocomplete="off" placeholder="Type the color"></div>
+    </div>
+  </section>
+
+  <section class="card no-print" aria-labelledby="h-flats">
+    <h2 id="h-flats"><span class="step">3</span>Flats</h2>
+    <div class="rows">
+      <div class="rowhead" aria-hidden="true"><span>#</span><span>Width in</span><span>Length ft</span><span>+ in</span><span>Qty</span><span></span></div>
+      <div id="rows" class="rows"></div>
+    </div>
+    <p class="hint">Widths take decimals or fractions (6.75 or 6 3/4). Length is feet plus inches.</p>
+    <div class="btns">
+      <button type="button" class="btn" id="addRow">+ Add flat</button>
+      <button type="button" class="btn ghost" id="newOrder">New order</button>
+    </div>
+    <details class="rules">
+      <summary>Shop rules this tool follows</summary>
+      <ul>
+        <li>Pieces cut together share one length, since the shear cuts the full coil width at once.</li>
+        <li>Six blades: a pass has at most 7 strips, counting repeated widths and rack-bonus strips.</li>
+        <li>Cut length is ordered length + 3" from 10' to 20'. Exactly 21' is cut at 21'. Nothing is cut past 21' for the allowance. Under 10' and over 21' are cut as ordered.</li>
+        <li>Leftover exactly 13" or 6 3/4" wide on cut lengths from 10' 3" to 21' is rack stock, not scrap.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="btns no-print">
+    <button type="button" class="btn primary" id="calc">Calculate cut plan</button>
+  </div>
+
+  <div id="msg" class="no-print"></div>
+  <section class="card" id="results" hidden aria-labelledby="h-plan"></section>
+  <p class="foot no-print">Runs in your browser. Your current order is kept on this device.</p>
+</div>
+
+<script>
+"use strict";
+/* ---------- Constants ---------- */
+const U = 32;                       // width units per inch (1/32")
+const MAX_STRIPS = 7;               // 6 blades
+const RACK = [13 * U, 6.75 * U];    // rack stock widths
+const RACK_MIN_LEN = 123, RACK_MAX_LEN = 252; // 10'3" to 21', in inches
+const STORE = "prime-slitter-v1";
+const EMBEDDED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+// PRIME color charts. Edit names here to match the printed charts exactly.
+const COLORS = {
+  "Standard": ["Polar White", "Bright White", "Light Stone", "Ivory", "Tan", "Ash Gray", "Pewter Gray", "Charcoal", "Burnished Slate", "Brown", "Black", "Ocean Blue", "Fern Green", "Rustic Red"],
+  "Premium": ["Copper Metallic", "Galvalume Plus", "Matte Black", "Crinkle Charcoal", "Zinc Gray", "Burgundy", "Colony Green", "Desert Sand"],
+  "Woodgrain": ["Rustic Barnwood", "Weathered Cedar", "Dark Walnut", "Gray Oak"]
+};
+const OTHER = "__other__";
+
+const EXAMPLE = {
+  coil: "41", customW: "", orderNo: "24-1187", customer: "Example customer", color: "Charcoal", colorOther: "",
+  rows: [
+    { w: "10", ft: "12", inch: "", qty: "6" },
+    { w: "10", ft: "10", inch: "", qty: "8" },
+    { w: "6", ft: "12", inch: "", qty: "4" },
+    { w: "4 1/2", ft: "10", inch: "", qty: "10" },
+    { w: "8 1/4", ft: "16", inch: "", qty: "5" }
+  ],
+  choice: "A", example: true
+};
+const blankRow = () => ({ w: "", ft: "", inch: "", qty: "" });
+
+let state = load();
+let lastResult = null;
+
+/* ---------- Storage ---------- */
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && Array.isArray(s.rows)) return s; } catch (e) {}
+  return JSON.parse(JSON.stringify(EXAMPLE));
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+/* ---------- Parsing & formatting ---------- */
+function parseNum(s) {
+  s = String(s ?? "").trim().replace(/["”'′″]/g, "").trim();
+  if (!s) return NaN;
+  let m = s.match(/^(\d*\.?\d+)$/);
+  if (m) return +m[1];
+  m = s.match(/^(?:(\d+)[\s-]+)?(\d+)\/(\d+)$/);
+  if (m && +m[3] > 0) return (m[1] ? +m[1] : 0) + (+m[2]) / (+m[3]);
+  return NaN;
+}
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function fracStr(x, denom) {
+  const t = Math.round(x * denom), whole = Math.floor(t / denom), r = t % denom;
+  if (!r) return String(whole);
+  const g = gcd(r, denom), f = `${r / g}/${denom / g}`;
+  return whole ? `${whole} ${f}` : f;
+}
+const fmtW = u => fracStr(u / U, U) + '"';
+const fmtWShort = u => fracStr(u / U, U);
+function fmtLen(inches) {
+  const ft = Math.floor(inches / 12 + 1e-9), r = inches - ft * 12;
+  return r > 1e-9 ? `${ft}' ${fracStr(r, 16)}"` : `${ft}'`;
+}
+const fmtFt = inches => (inches / 12).toFixed(1).replace(/\.0$/, "") + " ft";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- Shop rules ---------- */
+function cutLength(L) {               // inches in, inches out
+  if (L >= 120 && L < 252) return Math.min(L + 3, 252);
+  return L;                           // under 10', exactly 21', over 21'
+}
+const rackLength = c => c >= RACK_MIN_LEN && c <= RACK_MAX_LEN;
+
+/* ---------- Cutting-stock solver ----------
+   One batch = one cut length. Minimizes passes (coil footage), then the number
+   of different blade setups. Each pass holds at most MAX_STRIPS strips. */
+function solveCSP(widths, demand, W, opt = {}) {
+  const k = widths.length, target = opt.target ?? Infinity, LIMIT = opt.limit ?? 30000;
+  const keyOf = c => c.join(",");
+
+  function patterns(d) {
+    let first = -1;
+    for (let i = 0; i < k; i++) if (d[i] > 0) { first = i; break; }
+    const out = [], c = new Array(k).fill(0);
+    (function rec(i, cap, s) {
+      if (i === k) {
+        if (s < MAX_STRIPS) for (let j = 0; j < k; j++) if (d[j] > c[j] && widths[j] <= cap) return; // not maximal
+        out.push({ c: c.slice(), used: W - cap, s });
+        return;
+      }
+      const hi = Math.min(d[i], Math.floor(cap / widths[i]), MAX_STRIPS - s);
+      const lo = i === first ? 1 : 0; // the widest remaining piece goes in this pass
+      for (let x = hi; x >= lo; x--) { c[i] = x; rec(i + 1, cap - x * widths[i], s + x); }
+      c[i] = 0;
+    })(0, W, 0);
+    out.sort((a, b) => b.used - a.used || a.s - b.s);
+    return out;
+  }
+  function lowerBound(d) {
+    let area = 0, n = 0;
+    for (let i = 0; i < k; i++) { area += d[i] * widths[i]; n += d[i]; }
+    return Math.max(Math.ceil(area / W), Math.ceil(n / MAX_STRIPS));
+  }
+  function greedy(d0) {
+    const d = d0.slice(), runs = [];
+    while (d.some(x => x > 0)) {
+      const p = patterns(d)[0];
+      let m = Infinity;
+      for (let i = 0; i < k; i++) if (p.c[i] > 0) m = Math.min(m, Math.floor(d[i] / p.c[i]));
+      for (let t = 0; t < m; t++) runs.push(p.c);
+      for (let i = 0; i < k; i++) d[i] -= p.c[i] * m;
+    }
+    return runs;
+  }
+  const distinct = runs => new Set(runs.map(keyOf)).size;
+  function result(runs) {
+    const map = new Map();
+    for (const c of runs) { const kk = keyOf(c); if (map.has(kk)) map.get(kk).mult++; else map.set(kk, { counts: c, mult: 1 }); }
+    return { runs: runs.length, patterns: [...map.values()].sort((a, b) => b.mult - a.mult), widths };
+  }
+
+  const lb0 = lowerBound(demand);
+  let best = greedy(demand), bestD = distinct(best);
+  if (best.length <= target || (best.length === lb0 && bestD === 1)) return result(best);
+
+  let nodes = 0, stop = false;
+  const memo = new Map(), path = [], d = demand.slice();
+  const bound = () => (target !== Infinity ? target : best.length);
+  (function dfs() {
+    let rem = 0;
+    for (let i = 0; i < k; i++) rem += d[i];
+    const n = path.length;
+    if (rem === 0) {
+      if (target !== Infinity) { if (n <= target) { best = path.slice(); stop = true; } return; }
+      const dd = distinct(path);
+      if (n < best.length || (n === best.length && dd < bestD)) {
+        best = path.slice(); bestD = dd;
+        if (n === lb0 && dd === 1) stop = true;
+      }
+      return;
+    }
+    if (++nodes > LIMIT) { stop = true; return; }
+    const lb = lowerBound(d), B = bound();
+    if (n + lb > B) return;
+    if (target === Infinity && n + lb === B && distinct(path) >= bestD) return;
+    const kk = keyOf(d), seen = memo.get(kk);
+    if (seen !== undefined && seen <= n) return;
+    memo.set(kk, n);
+    let ps = patterns(d);
+    if (n > 0) { // try repeating the last setup first: fewer blade changes
+      const last = keyOf(path[n - 1]), i = ps.findIndex(p => keyOf(p.c) === last);
+      if (i > 0) ps.unshift(ps.splice(i, 1)[0]);
+    }
+    if (ps.length > 30) ps = ps.slice(0, 30);
+    for (const p of ps) {
+      for (let i = 0; i < k; i++) d[i] -= p.c[i];
+      path.push(p.c); dfs(); path.pop();
+      for (let i = 0; i < k; i++) d[i] += p.c[i];
+      if (stop) return;
+    }
+  })();
+  return result(best);
+}
+
+// origins: [{wU, L, n, promoted}] → solver input
+function solveOrigins(origins, W, opt) {
+  const byW = new Map();
+  for (const o of origins) byW.set(o.wU, (byW.get(o.wU) || 0) + o.n);
+  const widths = [...byW.keys()].sort((a, b) => b - a);
+  return solveCSP(widths, widths.map(w => byW.get(w)), W, opt);
+}
+
+/* ---------- Strategies ---------- */
+// Option A: every cut length is its own batch.
+function rawPlanA(lines, W) {
+  const cuts = [...new Set(lines.map(l => l.cut))].sort((a, b) => b - a);
+  return cuts.map(c => {
+    const origins = lines.filter(l => l.cut === c).map(l => ({ wU: l.wU, L: l.L, n: l.qty, promoted: false }));
+    return { cut: c, origins, sol: solveOrigins(origins, W) };
+  });
+}
+
+// Option B: fill spare room in longer batches with shorter pieces, cut at the longer length.
+function rawPlanB(lines, W) {
+  const cuts = [...new Set(lines.map(l => l.cut))].sort((a, b) => b - a);
+  const orders = [
+    (a, b) => b.wU - a.wU || b.cut - a.cut,
+    (a, b) => b.cut - a.cut || b.wU - a.wU,
+    (a, b) => b.wU * b.qty - a.wU * a.qty,
+    (a, b) => a.wU - b.wU || b.cut - a.cut
+  ];
+  let best = null;
+  for (const ord of orders) {
+    const rem = lines.map(l => ({ ...l, left: l.qty }));
+    const batches = [];
+    let foot = 0, promotedCount = 0;
+    for (const c of cuts) {
+      const origins = rem.filter(l => l.cut === c && l.left > 0).map(l => ({ wU: l.wU, L: l.L, n: l.left, promoted: false }));
+      rem.forEach(l => { if (l.cut === c) l.left = 0; });
+      if (!origins.length) continue;
+      let sol = solveOrigins(origins, W);
+      const R = sol.runs;
+      const fits = (l, m) => {
+        const s = solveOrigins([...origins, { wU: l.wU, L: l.L, n: m }], W, { target: R, limit: 4000 });
+        return s.runs <= R ? s : null;
+      };
+      for (const l of rem.filter(x => x.cut < c && x.left > 0).sort(ord)) {
+        let take = 0, s = fits(l, l.left), keep = null;
+        if (s) { take = l.left; keep = s; }
+        else if ((s = fits(l, 1))) {
+          let lo = 1, hi = l.left - 1; keep = s;
+          while (lo < hi) {
+            const mid = Math.ceil((lo + hi) / 2), t = fits(l, mid);
+            if (t) { lo = mid; keep = t; } else hi = mid - 1;
+          }
+          take = lo;
+        }
+        if (take > 0) {
+          origins.push({ wU: l.wU, L: l.L, n: take, promoted: true });
+          l.left -= take; promotedCount += take; sol = keep;
+        }
+      }
+      const fin = solveOrigins(origins, W);
+      if (fin.runs <= sol.runs) sol = fin;
+      batches.push({ cut: c, origins, sol });
+      foot += sol.runs * c;
+    }
+    if (!best || foot < best.foot || (foot === best.foot && promotedCount < best.promotedCount)) best = { foot, batches, promotedCount };
+  }
+  return best;
+}
+
+/* ---------- Plan assembly ---------- */
+function rackFill(left, slots) {
+  let best = { list: [], sum: 0 };
+  for (let a = 0; a * RACK[0] <= left; a++) {
+    for (let b = 0; a * RACK[0] + b * RACK[1] <= left; b++) {
+      const sum = a * RACK[0] + b * RACK[1], n = a + b;
+      if (n > slots) continue; // rack strips count toward the 7-strip limit
+      if (sum > best.sum || (sum === best.sum && n < best.list.length)) best = { list: [...Array(a).fill(RACK[0]), ...Array(b).fill(RACK[1])], sum };
+    }
+  }
+  return best;
+}
+
+function buildPlan(key, raw, W) {
+  const bonusRack = key === "A";
+  let totalIn = 0, scrapArea = 0, totalRuns = 0, setups = 0;
+  const rack = new Map();
+  const batches = raw.map(b => {
+    const pats = b.sol.patterns.map(p => {
+      const strips = [];
+      b.sol.widths.forEach((w, i) => { for (let t = 0; t < p.counts[i]; t++) strips.push({ u: w, kind: "o" }); });
+      const used = strips.reduce((s, x) => s + x.u, 0);
+      let left = W - used, rackList = [];
+      if (rackLength(b.cut)) {
+        if (bonusRack) rackList = rackFill(left, MAX_STRIPS - strips.length).list;
+        else if (RACK.includes(left) && strips.length < MAX_STRIPS) rackList = [left];
+      }
+      rackList.forEach(u => { strips.push({ u, kind: "r" }); left -= u; const rk = u + "|" + b.cut; rack.set(rk, (rack.get(rk) || 0) + p.mult); });
+      scrapArea += left * b.cut * p.mult;
+      return { strips, scrap: left, mult: p.mult };
+    });
+    totalIn += b.sol.runs * b.cut; totalRuns += b.sol.runs; setups += pats.length;
+    return { cut: b.cut, runs: b.sol.runs, footIn: b.sol.runs * b.cut, origins: b.origins, pats };
+  });
+  const rackList = [...rack.entries()].map(([k, n]) => { const [u, c] = k.split("|").map(Number); return { u, cut: c, n }; })
+    .sort((a, b) => b.cut - a.cut || b.u - a.u);
+  return {
+    key, name: key === "A" ? "Option A · Rack-stock bonus" : "Option B · Length bonus",
+    batches, totalIn, totalRuns, setups, rack: rackList,
+    waste: totalIn ? scrapArea / (W * totalIn) * 100 : 0
+  };
+}
+
+/* ---------- Main calculation ---------- */
+function coilWidth() {
+  if (state.coil === "custom") return parseNum(state.customW);
+  return +state.coil;
+}
+
+function calculate() {
+  const errs = [], W_in = coilWidth();
+  if (!(W_in > 0)) errs.push("Enter a custom coil width in inches.");
+  const W = Math.round(W_in * U);
+  const map = new Map(), bad = new Set();
+  state.rows.forEach((r, i) => {
+    const empty = !String(r.w).trim() && !String(r.ft).trim() && !String(r.inch).trim() && !String(r.qty).trim();
+    if (empty) return;
+    const w = parseNum(r.w), ft = String(r.ft).trim() ? parseNum(r.ft) : 0, inch = String(r.inch).trim() ? parseNum(r.inch) : 0;
+    const qty = Number(String(r.qty).trim());
+    const L = ft * 12 + inch, n = i + 1;
+    if (!(w > 0)) { errs.push(`Flat ${n}: enter a width.`); bad.add(i); return; }
+    if (W > 0 && Math.round(w * U) > W) { errs.push(`Flat ${n}: ${fracStr(w, U)}" is wider than the ${fracStr(W_in, U)}" coil.`); bad.add(i); return; }
+    if (!(L > 0) || isNaN(ft) || isNaN(inch)) { errs.push(`Flat ${n}: enter a length.`); bad.add(i); return; }
+    if (!Number.isInteger(qty) || qty < 1) { errs.push(`Flat ${n}: quantity must be a whole number of 1 or more.`); bad.add(i); return; }
+    const wU = Math.round(w * U), key = wU + "|" + L;
+    if (map.has(key)) map.get(key).qty += qty;
+    else map.set(key, { wU, L, qty, cut: cutLength(L) });
+  });
+  markBad(bad);
+  if (!map.size && !errs.length) errs.push("Add at least one flat with a width, length and quantity.");
+  if (errs.length) return { errs };
+  const lines = [...map.values()];
+  const A = buildPlan("A", rawPlanA(lines, W), W);
+  let B = null;
+  if (new Set(lines.map(l => l.cut)).size > 1) {
+    const rb = rawPlanB(lines, W);
+    if (rb && rb.foot < A.totalIn) B = buildPlan("B", rb.batches, W);
+  }
+  const sameWidthMultiLen = (() => {
+    const seen = new Map();
+    for (const l of lines) { if (!seen.has(l.wU)) seen.set(l.wU, new Set()); seen.get(l.wU).add(l.cut); }
+    return [...seen.values()].some(s => s.size > 1);
+  })();
+  const longOrShort = lines.filter(l => l.L > 252 || l.L < 120);
+  return { W, A, B, sameWidthMultiLen, longOrShort, header: headerInfo() };
+}
+
+function headerInfo() {
+  const color = state.color === OTHER ? (state.colorOther || "").trim() : state.color;
+  return { orderNo: (state.orderNo || "").trim(), customer: (state.customer || "").trim(), color: color || "", coil: coilWidth() };
+}
+
+/* ---------- Rendering: inputs ---------- */
+const $ = id => document.getElementById(id);
+
+function renderColorSelect() {
+  const sel = $("color");
+  let html = '<option value="">Choose a color</option>';
+  for (const [grp, names] of Object.entries(COLORS)) {
+    html += `<optgroup label="${esc(grp)}">` + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("") + "</optgroup>";
+  }
+  html += `<option value="${OTHER}">Other (type it in)</option>`;
+  sel.innerHTML = html;
+}
+
+function renderRows() {
+  $("rows").innerHTML = state.rows.map((r, i) => `
+    <div class="row" data-i="${i}">
+      <span class="n">${i + 1}</span>
+      <input type="text" inputmode="decimal" id="w${i}" data-f="w" value="${esc(r.w)}" aria-label="Flat ${i + 1} width in inches" placeholder="in">
+      <input type="text" inputmode="numeric" id="ft${i}" data-f="ft" value="${esc(r.ft)}" aria-label="Flat ${i + 1} length feet" placeholder="ft">
+      <input type="text" inputmode="decimal" id="in${i}" data-f="inch" value="${esc(r.inch)}" aria-label="Flat ${i + 1} length extra inches" placeholder="0">
+      <input type="text" inputmode="numeric" id="q${i}" data-f="qty" value="${esc(r.qty)}" aria-label="Flat ${i + 1} quantity" placeholder="qty">
+      <button type="button" class="iconbtn" data-del="${i}" aria-label="Remove flat ${i + 1}">×</button>
+    </div>`).join("");
+}
+
+function markBad(bad) {
+  document.querySelectorAll("#rows .row").forEach(el => {
+    const i = +el.dataset.i;
+    el.classList.toggle("bad", bad.has(i));
+    el.querySelectorAll("input").forEach(inp => inp.classList.toggle("badf", bad.has(i)));
+  });
+}
+
+function syncInputs() {
+  ["coil41", "coil43", "coilCustom"].forEach(id => { $(id).checked = $(id).value === state.coil; });
+  $("customWrap").hidden = state.coil !== "custom";
+  $("customW").value = state.customW || "";
+  $("orderNo").value = state.orderNo || "";
+  $("customer").value = state.customer || "";
+  $("color").value = state.color || "";
+  if ($("color").value !== state.color) $("color").value = "";
+  $("colorOtherWrap").hidden = state.color !== OTHER;
+  $("colorOther").value = state.colorOther || "";
+  $("exampleBanner").hidden = !state.example;
+  renderRows();
+}
+
+function changed() {
+  if (state.example) { state.example = false; $("exampleBanner").hidden = true; }
+  save();
+  if (lastResult && !lastResult.errs) {
+    $("msg").innerHTML = '<div class="banner">The order changed. Calculate again to update the plan.</div>';
+  }
+}
+
+/* ---------- Rendering: results ---------- */
+function stripText(p) {
+  const parts = p.strips.map(s => s.kind === "r" ? `<span class="rk">${fmtWShort(s.u)} rack</span>` : fmtWShort(s.u));
+  if (p.scrap > 0) parts.push(`<span class="sc">${fmtWShort(p.scrap)} scrap</span>`);
+  return parts.join(" | ");
+}
+function bladeText(p) {
+  const pos = []; let acc = 0;
+  const pieces = p.strips.length + (p.scrap > 0 ? 1 : 0);
+  p.strips.forEach((s, i) => { acc += s.u; if (i < pieces - 1) pos.push(fmtWShort(acc)); });
+  return pos.length ? `Blades at ${pos.join(", ")}" from the edge` : "No blades (full width)";
+}
+function barHtml(p, W) {
+  let alt = false;
+  const segs = p.strips.map(s => {
+    const pct = s.u / W * 100, label = pct >= 7 ? fmtWShort(s.u) : "";
+    let cls = s.kind === "r" ? "r" : "o" + ((alt = !alt) ? "" : " alt");
+    return `<div class="seg-s ${cls}" style="flex:0 0 ${pct}%" title="${fmtW(s.u)}${s.kind === "r" ? " rack stock" : ""}">${label}</div>`;
+  });
+  if (p.scrap > 0) {
+    const pct = p.scrap / W * 100;
+    segs.push(`<div class="seg-s x" style="flex:1 1 ${pct}%" title="${fmtW(p.scrap)} scrap">${pct >= 7 ? fmtWShort(p.scrap) : ""}</div>`);
+  }
+  return `<div class="bar" role="img" aria-label="Strips: ${p.strips.map(s => fmtW(s.u) + (s.kind === "r" ? " rack" : "")).join(", ")}${p.scrap > 0 ? ", " + fmtW(p.scrap) + " scrap" : ""}">${segs.join("")}</div>`;
+}
+
+function renderPlan(res) {
+  const plan = res.B && state.choice === "B" ? res.B : res.A, h = res.header, W = res.W;
+  let html = '<h2 id="h-plan" class="no-print"><span class="step">4</span>Cut plan</h2>';
+
+  if (res.B) {
+    const diff = res.A.totalIn - res.B.totalIn, pct = diff / res.A.totalIn * 100;
+    const card = (p, desc) => `
+      <button type="button" class="opt-card" data-choose="${p.key}" aria-pressed="${plan.key === p.key}">
+        <span class="pick">${plan.key === p.key ? "Using this plan" : "Use this plan"}</span>
+        <span class="ot">${esc(p.name)}</span>
+        <span class="of">${fmtLen(p.totalIn)} · ${fmtFt(p.totalIn)}</span>
+        <span class="od">${p.waste.toFixed(1)}% waste · ${p.rack.reduce((s, r) => s + r.n, 0)} rack pcs</span>
+        <span class="od">${desc}</span>
+      </button>`;
+    html += `<div class="no-print" style="display:flex;flex-direction:column;gap:8px">
+      <p class="note savings">Option B saves <b>${fmtFt(diff)}</b> of coil (${pct.toFixed(1)}%) by cutting some shorter pieces at a longer length on the order.</p>
+      <div class="compare">
+        ${card(res.A, "Each length cut on its own. Banks 13\" and 6 3/4\" leftovers. Suits slow-moving colors.")}
+        ${card(res.B, "Shorter pieces get free extra length. Suits fast-moving colors with a full rack.")}
+      </div></div>`;
+  } else if (res.sameWidthMultiLen) {
+    html += `<p class="note no-print">Option B (length bonus) was checked and found no way to save coil on this order, so Option A is the plan.</p>`;
+  }
+
+  html += `<div class="plan-head">
+      <div style="flex-basis:100%"><span class="lbl print-only">PRIME Slitter Optimizer</span><p class="plan-title">Cut plan</p><span class="chosen">${esc(plan.name)}</span></div>
+      <div><span class="lbl">Order</span><b>${esc(h.orderNo) || "—"}</b></div>
+      <div><span class="lbl">Customer</span><b>${esc(h.customer) || "—"}</b></div>
+      <div><span class="lbl">Color</span><b>${esc(h.color) || "—"}</b></div>
+      <div><span class="lbl">Coil</span><b>${fracStr(h.coil, U)}"</b></div>
+    </div>`;
+
+  const rackPcs = plan.rack.reduce((s, r) => s + r.n, 0);
+  html += `<div class="stats">
+      <div class="stat"><span class="lbl">Coil needed</span><span class="v">${fmtLen(plan.totalIn)}</span><span class="s">${fmtFt(plan.totalIn)}</span></div>
+      <div class="stat"><span class="lbl">Waste</span><span class="v">${plan.waste.toFixed(1)}%</span><span class="s">scrap only</span></div>
+      <div class="stat"><span class="lbl">Passes</span><span class="v">${plan.totalRuns}</span><span class="s">${plan.setups} blade setup${plan.setups === 1 ? "" : "s"}</span></div>
+      <div class="stat"><span class="lbl">Rack stock</span><span class="v">${rackPcs}</span><span class="s">bonus pieces</span></div>
+    </div>
+    <div class="legend"><span><i style="background:var(--strip)"></i>Ordered strip</span><span><i style="background:var(--rack)"></i>Rack stock</span><span><i style="background:repeating-linear-gradient(135deg,var(--scrap-soft) 0 4px,var(--scrap) 4px 5px)"></i>Scrap</span></div>`;
+
+  for (const b of plan.batches) {
+    const ordered = [...new Set(b.origins.map(o => o.L))].sort((x, y) => y - x).map(fmtLen).join(", ");
+    html += `<div class="batch">
+      <div class="batch-h"><span class="cl">Cut at ${fmtLen(b.cut)}</span><span class="meta">${b.runs} pass${b.runs === 1 ? "" : "es"} · ${fmtFt(b.footIn)} · ordered ${ordered}</span></div>`;
+    for (const p of b.pats) {
+      const nStrips = p.strips.length;
+      html += `<div class="pat">
+        <div class="runs"><b>×${p.mult}</b><small>run${p.mult === 1 ? "" : "s"}</small></div>
+        <div class="pat-body">${barHtml(p, W)}
+          <div class="strips">${stripText(p)}</div>
+          <div class="strips">${nStrips} strip${nStrips === 1 ? "" : "s"} · ${bladeText(p)}</div>
+        </div></div>`;
+    }
+    const promo = b.origins.filter(o => o.promoted);
+    if (promo.length) {
+      html += `<p class="note"><b>Length bonus:</b> ${promo.map(o => `${o.n} × ${fmtW(o.wU)} ordered at ${fmtLen(o.L)}`).join("; ")} cut at ${fmtLen(b.cut)}.</p>`;
+    }
+    html += `</div>`;
+  }
+
+  // Pieces by length
+  html += `<h3>Pieces by length</h3><div class="tbl-wrap"><table>
+    <thead><tr><th>Width</th><th>Ordered</th><th class="num">Pcs</th><th class="num">Coil</th></tr></thead><tbody>`;
+  for (const b of plan.batches) {
+    const pcs = b.origins.reduce((s, o) => s + o.n, 0);
+    html += `<tr class="grp"><td colspan="2">Cut at ${fmtLen(b.cut)}</td><td class="num">${pcs}</td><td class="num">${fmtFt(b.footIn)}</td></tr>`;
+    const rows = b.origins.slice().sort((x, y) => y.wU - x.wU || y.L - x.L);
+    for (const o of rows) {
+      html += `<tr><td>${fmtW(o.wU)}</td><td>${fmtLen(o.L)}${o.promoted ? ' <span class="bonus">length bonus</span>' : ""}</td><td class="num">${o.n}</td><td></td></tr>`;
+    }
+  }
+  html += `</tbody></table></div>`;
+
+  // Rack stock
+  html += `<h3>Rack stock produced</h3>`;
+  if (plan.rack.length) {
+    html += `<div class="tbl-wrap"><table><thead><tr><th>Width</th><th>Length</th><th class="num">Pcs</th></tr></thead><tbody>` +
+      plan.rack.map(r => `<tr><td><span class="rack-pill">${fmtW(r.u)}</span></td><td>${fmtLen(r.cut)}</td><td class="num">${r.n}</td></tr>`).join("") +
+      `</tbody></table></div>`;
+  } else {
+    html += `<p class="note">None. No leftover on this plan is 13" or 6 3/4" wide at a rack length (10' 3" to 21').</p>`;
+  }
+
+  if (res.longOrShort.length) {
+    html += `<p class="note">Cut as ordered with no 3" allowance: ${res.longOrShort.map(l => `${fmtW(l.wU)} × ${fmtLen(l.L)}`).join(", ")}${res.longOrShort.some(l => l.L > 252) ? ". Check the shear and coil for pieces over 21'." : "."}</p>`;
+  }
+
+  html += `<div class="btns no-print">
+      <button type="button" class="btn" id="pdfBtn">Save as PDF</button>
+      <button type="button" class="btn" id="emailBtn">Email plan</button>
+      <button type="button" class="btn ghost" id="copyBtn">Copy as text</button>
+    </div>
+    <div id="shareMsg" class="no-print"></div>`;
+
+  const el = $("results");
+  el.innerHTML = html;
+  el.hidden = false;
+  document.title = h.orderNo ? `Cut plan ${h.orderNo}` : "PRIME Slitter Optimizer";
+}
+
+/* ---------- Text / email ---------- */
+function planText(res) {
+  const plan = res.B && state.choice === "B" ? res.B : res.A, h = res.header, W = res.W;
+  const L = [];
+  L.push("PRIME SLITTER CUT PLAN");
+  L.push(`Plan: ${plan.name}`);
+  L.push(`Order: ${h.orderNo || "-"}   Customer: ${h.customer || "-"}`);
+  L.push(`Color: ${h.color || "-"}   Coil: ${fracStr(h.coil, U)}"`);
+  L.push(`Coil needed: ${fmtLen(plan.totalIn)} (${fmtFt(plan.totalIn)})   Waste: ${plan.waste.toFixed(1)}%   Passes: ${plan.totalRuns}`);
+  if (res.B) {
+    const other = plan.key === "A" ? res.B : res.A;
+    L.push(`(${other.name}: ${fmtFt(other.totalIn)})`);
+  }
+  for (const b of plan.batches) {
+    L.push("");
+    L.push(`CUT AT ${fmtLen(b.cut)}  -  ${b.runs} pass${b.runs === 1 ? "" : "es"}, ${fmtFt(b.footIn)}`);
+    b.pats.forEach(p => {
+      const s = p.strips.map(x => fmtWShort(x.u) + (x.kind === "r" ? " RACK" : "")).join(" | ") + (p.scrap > 0 ? ` | ${fmtWShort(p.scrap)} scrap` : "");
+      L.push(`  x${p.mult}:  ${s}`);
+    });
+    b.origins.filter(o => o.promoted).forEach(o => L.push(`  Length bonus: ${o.n} x ${fmtW(o.wU)} ordered at ${fmtLen(o.L)}`));
+  }
+  L.push("");
+  L.push("PIECES BY LENGTH");
+  for (const b of plan.batches) {
+    L.push(`  Cut at ${fmtLen(b.cut)} (${fmtFt(b.footIn)}):`);
+    b.origins.slice().sort((x, y) => y.wU - x.wU).forEach(o => L.push(`    ${o.n} x ${fmtW(o.wU)}  ordered ${fmtLen(o.L)}${o.promoted ? "  (length bonus)" : ""}`));
+  }
+  L.push("");
+  L.push("RACK STOCK");
+  if (plan.rack.length) plan.rack.forEach(r => L.push(`  ${r.n} x ${fmtW(r.u)} at ${fmtLen(r.cut)}`));
+  else L.push("  None");
+  return L.join("\n");
+}
+
+function showCopyBox(text, note) {
+  $("shareMsg").innerHTML = `<div class="banner" style="display:flex;flex-direction:column;gap:8px">${note ? `<span>${note}</span>` : ""}<textarea class="copybox" id="copyBox" readonly aria-label="Cut plan text">${esc(text)}</textarea></div>`;
+  const ta = $("copyBox"); ta.focus(); ta.select();
+}
+
+/* ---------- Events ---------- */
+function bind() {
+  document.querySelectorAll('input[name="coil"]').forEach(r => r.addEventListener("change", () => {
+    state.coil = r.value; $("customWrap").hidden = state.coil !== "custom";
+    if (state.coil === "custom") $("customW").focus();
+    changed();
+  }));
+  $("customW").addEventListener("input", e => { state.customW = e.target.value; changed(); });
+  $("orderNo").addEventListener("input", e => { state.orderNo = e.target.value; changed(); });
+  $("customer").addEventListener("input", e => { state.customer = e.target.value; changed(); });
+  $("color").addEventListener("change", e => {
+    state.color = e.target.value; $("colorOtherWrap").hidden = state.color !== OTHER;
+    if (state.color === OTHER) $("colorOther").focus();
+    changed();
+  });
+  $("colorOther").addEventListener("input", e => { state.colorOther = e.target.value; changed(); });
+
+  $("rows").addEventListener("input", e => {
+    const row = e.target.closest(".row"); if (!row || !e.target.dataset.f) return;
+    state.rows[+row.dataset.i][e.target.dataset.f] = e.target.value;
+    row.classList.remove("bad"); row.querySelectorAll("input").forEach(i => i.classList.remove("badf"));
+    changed();
+  });
+  $("rows").addEventListener("click", e => {
+    const del = e.target.closest("[data-del]"); if (!del) return;
+    state.rows.splice(+del.dataset.del, 1);
+    if (!state.rows.length) state.rows.push(blankRow());
+    renderRows(); changed();
+  });
+  $("rows").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); const row = e.target.closest(".row"); if (row && +row.dataset.i === state.rows.length - 1 && e.target.dataset.f === "qty") addRow(); else focusNext(e.target); }
+  });
+  $("addRow").addEventListener("click", addRow);
+  const reset = () => {
+    state = { coil: state.coil, customW: state.customW, orderNo: "", customer: "", color: "", colorOther: "", rows: [blankRow(), blankRow(), blankRow()], choice: "A", example: false };
+    lastResult = null; save(); syncInputs();
+    $("results").hidden = true; $("msg").innerHTML = ""; $("orderNo").focus();
+  };
+  $("newOrder").addEventListener("click", reset);
+  $("newOrder2").addEventListener("click", reset);
+
+  $("calc").addEventListener("click", () => {
+    $("msg").innerHTML = '<div class="banner">Calculating…</div>';
+    setTimeout(() => {
+      const res = calculate();
+      lastResult = res;
+      if (res.errs) {
+        $("msg").innerHTML = `<div class="banner err"><b>Fix these to calculate:</b><ul>${res.errs.map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>`;
+        $("results").hidden = true; return;
+      }
+      $("msg").innerHTML = "";
+      if (!res.B) state.choice = "A";
+      save(); renderPlan(res);
+      $("results").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    }, 20);
+  });
+
+  $("results").addEventListener("click", e => {
+    const ch = e.target.closest("[data-choose]");
+    if (ch) { state.choice = ch.dataset.choose; save(); renderPlan(lastResult); return; }
+    if (e.target.id === "pdfBtn") {
+      if (EMBEDDED) { showCopyBox(planText(lastResult), "Saving a PDF needs the tool opened in its own browser tab. Here is the plan as text in the meantime."); return; }
+      window.print();
+    }
+    if (e.target.id === "emailBtn") {
+      const h = lastResult.header;
+      const subject = `Cut plan - Order ${h.orderNo || "(no number)"}${h.customer ? " - " + h.customer : ""}`;
+      const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(planText(lastResult))}`;
+      if (EMBEDDED) { showCopyBox(planText(lastResult), "If no email opened, copy this text into a new email."); try { window.open(url, "_blank"); } catch (err) {} return; }
+      location.href = url;
+    }
+    if (e.target.id === "copyBtn") {
+      const text = planText(lastResult);
+      const done = () => { $("shareMsg").innerHTML = '<div class="banner">Copied the plan to the clipboard.</div>'; };
+      try { navigator.clipboard.writeText(text).then(done, () => showCopyBox(text, "Select the text below and copy it.")); }
+      catch (err) { showCopyBox(text, "Select the text below and copy it."); }
+    }
+  });
+}
+function addRow() {
+  state.rows.push(blankRow()); renderRows(); changed();
+  $("w" + (state.rows.length - 1)).focus();
+}
+function focusNext(el) {
+  const all = [...document.querySelectorAll("#rows input")], i = all.indexOf(el);
+  if (i >= 0 && all[i + 1]) all[i + 1].focus();
+}
+
+renderColorSelect();
+syncInputs();
+bind();
+if (state.example) $("calc").click();
+</script>
+</body>
+</html>
