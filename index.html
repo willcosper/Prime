@@ -20,6 +20,7 @@
   --need-bg: #fff1d6;
   --need-fg: #8a4b00;
   --ok-fg: #2d6a3e;
+  --out-fg: #b3261e;
   --input-bg: #f7f9fa;
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "IBM Plex Sans", system-ui, sans-serif;
@@ -29,13 +30,13 @@
   :root:not([data-theme="light"]) {
     --bg: #12171b; --panel: #1b2228; --fg: #e3e8eb; --muted: #94a3ad; --line: #2e3942;
     --accent: #6fb0de; --accent-fg: #0d1a24; --need-bg: #3a2a10; --need-fg: #ffc46b;
-    --ok-fg: #7fcf93; --input-bg: #141a1f; color-scheme: dark;
+    --ok-fg: #7fcf93; --out-fg: #ff8a80; --input-bg: #141a1f; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #12171b; --panel: #1b2228; --fg: #e3e8eb; --muted: #94a3ad; --line: #2e3942;
   --accent: #6fb0de; --accent-fg: #0d1a24; --need-bg: #3a2a10; --need-fg: #ffc46b;
-  --ok-fg: #7fcf93; --input-bg: #141a1f; color-scheme: dark;
+  --ok-fg: #7fcf93; --out-fg: #ff8a80; --input-bg: #141a1f; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
@@ -74,13 +75,16 @@ table.grid { border-collapse: collapse; width: 100%; font-variant-numeric: tabul
 .grid thead small { display: block; font: 500 .72rem var(--font-mono); color: var(--muted); }
 .grid tbody th { text-align: left; white-space: nowrap; font-weight: 600; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; vertical-align: -2px; border: 1px solid var(--line); }
-.grid input { width: 4.2rem; text-align: center; font: 500 1.05rem var(--font-mono); padding: 8px 4px; }
+.grid input { width: 3.4rem; text-align: center; font: 500 1.05rem var(--font-mono); padding: 8px 4px; }
 .grid input.low { border-color: var(--need-fg); background: var(--need-bg); }
+.grid input.out { border-color: var(--out-fg); border-style: dashed; }
+.grid tbody th, .grid thead th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; }
 .cell-meta { display: block; font-size: .72rem; color: var(--muted); min-height: 1.1em; margin-top: 3px; }
 .cell-meta b { color: var(--need-fg); font-weight: 600; }
 
 .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .orders li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 4px; background: var(--need-bg); color: var(--need-fg); font-variant-numeric: tabular-nums; }
+.orders li.is-out { box-shadow: inset 3px 0 0 var(--out-fg); }
 .orders li span:last-child { font-family: var(--font-mono); white-space: nowrap; }
 .all-good { color: var(--ok-fg); font-weight: 600; margin: 0; }
 
@@ -112,9 +116,10 @@ details[open] summary { margin-bottom: 14px; }
       <label for="counted-by">Counted by <input type="text" id="counted-by" placeholder="Your name" autocomplete="name"></label>
     </div>
     <div class="note" id="example-note" hidden>
-      <span>These are example numbers so you can see how it works.</span>
+      <span>Example: these numbers were read from a photo of the paper sheet, so a few may be off. Clear them before your real count.</span>
       <button type="button" id="clear-example">Clear and start counting</button>
     </div>
+    <p class="help">Same as the paper sheet: leave a box <b>blank</b> if there are none left, enter <b>0</b> if there's only an open box.</p>
     <div class="grid-wrap"><table class="grid" id="grid"></table></div>
     <div class="row">
       <button type="button" id="clear-counts">Clear counts</button>
@@ -159,17 +164,18 @@ details[open] summary { margin-bottom: 14px; }
 
 <script>
 (function () {
-  var KEY = "screwcount.v1";
+  var KEY = "screwcount.v2";
   var DEFAULTS = {
-    colors: ["Black", "Silver", "Red", "Blue", "Green", "Yellow"],
-    sizes: ["#6", "#8", "#10", "1/4\"", "5/16\""],
+    colors: ["Galvalume", "Polar White", "Ash Grey", "Charcoal Grey", "Black", "Hawaiian Blue", "Colony Green", "Hunter Green", "Crimson Red", "Rustic Red", "Lt Stone", "Sahara Tan", "Desert Sand", "Koko Brown", "Burnished Slate", "Matte White", "Matte Black", "Dark Bronze", "Slate Grey", "Dark Blue", "Berry", "Copper", "Cedar Smooth"],
+    sizes: ["3/4\"", "7/8\"", "1 1/2\"", "1\"", "1 1/4\""],
     unit: "boxes",
     par: {},
     to: "",
     name: ""
   };
-  var SAMPLE = [[12, 4, 18, 14, 11], [20, 15, 6, 11, 13], [17, 10, 12, 14, 9], [16, 13, 12, 15, 10], [11, 11, 13, 3, 16], [15, 18, 10, 12, 14]];
-  var SWATCH = { black: "#1a1a1a", silver: "#c0c4c8", zinc: "#b9bec2", chrome: "#d7dadd", white: "#ffffff", red: "#c62828", blue: "#1e5bb8", green: "#2e7d32", yellow: "#f2c200", orange: "#ef6c00", purple: "#6a3fa0", brown: "#6d4c41", gold: "#c9a227", bronze: "#8c6239", gray: "#8a9096", grey: "#8a9096", pink: "#e06aa3" };
+  // Read from a filled-in paper sheet; null = left blank. Only used as the first-run example.
+  var SAMPLE = [[6, 7, 9, 3, 4], [8, 8, 3, 2, 2], [7, 8, 5, 1, 1], [6, 6, 1, 0, 1], [6, 4, 3, 1, 2], [1, 1, 0, 0, 0], [1, 1, 0, 0, 1], [2, 4, 2, 0, 6], [1, 1, 0, 8, null], [2, 2, 0, 1, 1], [4, 17, 2, 0, 2], [2, 7, 1, 0, 2], [5, 5, 1, 0, 1], [3, 3, 2, 0, 2], [9, 6, 2, 0, null], [0, 0, 0, 3, 3], [4, 4, 4, 6, 6], [4, 6, 7, 2, 2], [4, 3, 3, 0, 1], [2, 1, 1, 0, 1], [1, 1, 0, 0, 1], [4, 2, 1, null, null], [3, 3, 3, 3, null]];
+  var SWATCH = { galvalume: "#a9b0b5", "polar white": "#f4f5f2", "ash grey": "#9ea19c", "charcoal grey": "#45484a", "hawaiian blue": "#3d7fb0", "colony green": "#6e8a6a", "hunter green": "#2f4d36", "crimson red": "#9b1b22", "rustic red": "#8a3b2b", "lt stone": "#d8cfbd", "sahara tan": "#c9b08a", "desert sand": "#d6c3a0", "koko brown": "#4f3a2c", "burnished slate": "#4a4239", "matte white": "#f2f2ee", "matte black": "#222222", "dark bronze": "#3b3027", "slate grey": "#6b7175", "dark blue": "#1f3352", berry: "#6b2341", copper: "#b0673a", "cedar smooth": "#a0663f", black: "#1a1a1a", silver: "#c0c4c8", zinc: "#b9bec2", chrome: "#d7dadd", white: "#ffffff", red: "#c62828", blue: "#1e5bb8", green: "#2e7d32", yellow: "#f2c200", orange: "#ef6c00", purple: "#6a3fa0", brown: "#6d4c41", gold: "#c9a227", bronze: "#8c6239", gray: "#8a9096", grey: "#8a9096", pink: "#e06aa3" };
 
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
@@ -177,9 +183,9 @@ details[open] summary { margin-bottom: 14px; }
   var saved = load();
   var state = saved || { settings: JSON.parse(JSON.stringify(DEFAULTS)), counts: {}, last: null, example: true };
   var S = state.settings;
-  S.sizes.forEach(function (s) { if (S.par[s] == null) S.par[s] = 10; });
+  S.sizes.forEach(function (s) { if (S.par[s] == null) S.par[s] = 3; });
   if (!saved) {
-    S.colors.forEach(function (c, i) { S.sizes.forEach(function (s, j) { state.counts[c + "|" + s] = String(SAMPLE[i][j]); }); });
+    S.colors.forEach(function (c, i) { S.sizes.forEach(function (s, j) { var v = SAMPLE[i] && SAMPLE[i][j]; state.counts[c + "|" + s] = v == null ? "" : String(v); }); });
   }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -192,6 +198,10 @@ details[open] summary { margin-bottom: 14px; }
     return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   }
   function num(v) { return v === "" || v == null || isNaN(+v) ? null : +v; }
+  // Sheet convention: blank = none left, 0 = only an open box left. Both count as 0 full boxes.
+  function boxes(k) { return num(state.counts[k]) || 0; }
+  function stock(k) { var v = num(state.counts[k]); return v == null ? "out" : v === 0 ? "open" : "ok"; }
+  function shown(k) { var st = stock(k); return st === "out" ? "OUT" : st === "open" ? "open box" : String(num(state.counts[k])); }
 
   $("count-date").value = state.date || isoDate(mondayOf(new Date()));
   $("counted-by").value = S.name || "";
@@ -200,9 +210,8 @@ details[open] summary { margin-bottom: 14px; }
     var out = [];
     S.colors.forEach(function (c) {
       S.sizes.forEach(function (s) {
-        var have = num(state.counts[c + "|" + s]);
-        var par = num(S.par[s]) || 0;
-        if (have != null && have < par) out.push({ color: c, size: s, have: have, par: par, order: par - have });
+        var k = c + "|" + s, have = boxes(k), par = num(S.par[s]) || 0;
+        if (have < par) out.push({ color: c, size: s, have: have, label: shown(k), out: stock(k) === "out", par: par, order: par - have });
       });
     });
     return out;
@@ -229,10 +238,12 @@ details[open] summary { margin-bottom: 14px; }
     var last = state.last && state.last.counts || {};
     S.colors.forEach(function (c, i) {
       S.sizes.forEach(function (s, j) {
-        var k = c + "|" + s, have = num(state.counts[k]), par = num(S.par[s]) || 0;
-        var low = have != null && have < par;
+        var k = c + "|" + s, have = boxes(k), par = num(S.par[s]) || 0, st = stock(k);
+        var low = have < par;
         $("c-" + i + "-" + j).classList.toggle("low", low);
-        var meta = low ? "<b>order " + (par - have) + "</b>" : "";
+        $("c-" + i + "-" + j).classList.toggle("out", st === "out");
+        var tag = st === "out" ? "out, " : st === "open" ? "open box, " : "";
+        var meta = low ? "<b>" + tag + "order " + (par - have) + "</b>" : "";
         if (!low && last[k] != null && last[k] !== "") meta = "last " + esc(last[k]);
         $("m-" + i + "-" + j).innerHTML = meta;
       });
@@ -243,7 +254,7 @@ details[open] summary { margin-bottom: 14px; }
     var o = computeOrders();
     $("order-list").innerHTML = o.length
       ? "<ul class=\"orders\">" + o.map(function (r) {
-          return "<li><span>" + esc(r.color + " " + r.size) + " <small>(have " + r.have + ", target " + r.par + ")</small></span><span>" + r.order + " " + esc(S.unit) + "</span></li>";
+          return "<li" + (r.out ? " class=\"is-out\"" : "") + "><span>" + esc(r.color + " " + r.size) + " <small>(have " + esc(r.label) + ", target " + r.par + ")</small></span><span>" + r.order + " " + esc(S.unit) + "</span></li>";
         }).join("") + "</ul>"
       : "<p class=\"all-good\">Everything is at or above target. Nothing to order.</p>";
   }
@@ -262,7 +273,7 @@ details[open] summary { margin-bottom: 14px; }
     if (o.length) {
       h += "<table style=\"border-collapse:collapse;margin-bottom:16px\"><tr style=\"background:#1d5a85;color:#fff\"><th style=\"" + td + "text-align:left\">Color</th><th style=\"" + td + "text-align:left\">Size</th><th style=\"" + td + "\">On hand</th><th style=\"" + td + "\">Target</th><th style=\"" + td + "\">Order</th></tr>";
       o.forEach(function (r) {
-        h += "<tr><td style=\"" + td + "\">" + esc(r.color) + "</td><td style=\"" + td + "\">" + esc(r.size) + "</td><td style=\"" + td + "text-align:center\">" + r.have + "</td><td style=\"" + td + "text-align:center\">" + r.par + "</td><td style=\"" + td + "text-align:center;background:#fff1d6;font-weight:bold\">" + r.order + " " + u + "</td></tr>";
+        h += "<tr><td style=\"" + td + "\">" + esc(r.color) + "</td><td style=\"" + td + "\">" + esc(r.size) + "</td><td style=\"" + td + "text-align:center" + (r.out ? ";color:#b3261e;font-weight:bold" : "") + "\">" + esc(r.label) + "</td><td style=\"" + td + "text-align:center\">" + r.par + "</td><td style=\"" + td + "text-align:center;background:#fff1d6;font-weight:bold\">" + r.order + " " + u + "</td></tr>";
       });
       h += "</table>";
     } else {
@@ -274,12 +285,12 @@ details[open] summary { margin-bottom: 14px; }
     S.colors.forEach(function (c) {
       h += "<tr><th style=\"" + td + "text-align:left\">" + esc(c) + "</th>";
       S.sizes.forEach(function (s) {
-        var have = num(state.counts[c + "|" + s]), low = have != null && have < (num(S.par[s]) || 0);
-        h += "<td style=\"" + td + "text-align:center" + (low ? ";background:#fff1d6;font-weight:bold" : "") + "\">" + (have == null ? "–" : have) + "</td>";
+        var k = c + "|" + s, low = boxes(k) < (num(S.par[s]) || 0);
+        h += "<td style=\"" + td + "text-align:center" + (low ? ";background:#fff1d6;font-weight:bold" : "") + (stock(k) === "out" ? ";color:#b3261e" : "") + "\">" + esc(shown(k)) + "</td>";
       });
       h += "</tr>";
     });
-    return h + "</table><p style=\"margin:10px 0 0;color:#5d6b75;font-size:12px\">Highlighted cells are below target.</p></div>";
+    return h + "</table><p style=\"margin:10px 0 0;color:#5d6b75;font-size:12px\">Highlighted cells are below target. OUT = none left. Open box = only a partial box left.</p></div>";
   }
 
   function emailText() {
@@ -287,11 +298,11 @@ details[open] summary { margin-bottom: 14px; }
     lines.push("Screw inventory, week of " + niceDate($("count-date").value));
     if (S.name) lines.push("Counted by " + S.name);
     lines.push("", "TO ORDER");
-    if (o.length) o.forEach(function (r) { lines.push("- " + r.color + " " + r.size + ": order " + r.order + " " + S.unit + " (have " + r.have + ", target " + r.par + ")"); });
+    if (o.length) o.forEach(function (r) { lines.push("- " + r.color + " " + r.size + ": order " + r.order + " " + S.unit + " (have " + r.label + ", target " + r.par + ")"); });
     else lines.push("Nothing to order this week.");
     lines.push("", "FULL COUNT (" + S.unit + " on hand)");
     S.colors.forEach(function (c) {
-      lines.push(c + ": " + S.sizes.map(function (s) { var v = num(state.counts[c + "|" + s]); return s + " = " + (v == null ? "-" : v); }).join(", "));
+      lines.push(c + ": " + S.sizes.map(function (s) { return s + " = " + shown(c + "|" + s); }).join(", "));
     });
     return lines.join("\n");
   }
