@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
-/* Layout: one column, count grid first, then the order list and the email you send. */
+/* Layout: one column. Count (by size, by color or full grid), then the order list, the email, and the setup. */
 :root {
   --bg: #eef1f3;
   --panel: #ffffff;
@@ -17,6 +17,7 @@
   --line: #d3dade;
   --accent: #1d5a85;
   --accent-fg: #ffffff;
+  --accent-soft: #e3eef6;
   --need-bg: #fff1d6;
   --need-fg: #8a4b00;
   --ok-fg: #2d6a3e;
@@ -29,13 +30,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #12171b; --panel: #1b2228; --fg: #e3e8eb; --muted: #94a3ad; --line: #2e3942;
-    --accent: #6fb0de; --accent-fg: #0d1a24; --need-bg: #3a2a10; --need-fg: #ffc46b;
+    --accent: #6fb0de; --accent-fg: #0d1a24; --accent-soft: #1d3142; --need-bg: #3a2a10; --need-fg: #ffc46b;
     --ok-fg: #7fcf93; --out-fg: #ff8a80; --input-bg: #141a1f; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #12171b; --panel: #1b2228; --fg: #e3e8eb; --muted: #94a3ad; --line: #2e3942;
-  --accent: #6fb0de; --accent-fg: #0d1a24; --need-bg: #3a2a10; --need-fg: #ffc46b;
+  --accent: #6fb0de; --accent-fg: #0d1a24; --accent-soft: #1d3142; --need-bg: #3a2a10; --need-fg: #ffc46b;
   --ok-fg: #7fcf93; --out-fg: #ff8a80; --input-bg: #141a1f; color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -46,39 +47,69 @@ body {
   padding-block: 24px 48px;
 }
 main { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
-h1, h2 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
 h1 { font-size: 2.4rem; line-height: 1; text-transform: uppercase; }
 h2 { font-size: 1.4rem; text-transform: uppercase; }
+h3 { font-size: 1.15rem; text-transform: uppercase; }
 .sub { color: var(--muted); margin: 6px 0 0; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.settings > * { min-width: 0; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 label { display: grid; gap: 4px; font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-input, textarea {
+input {
   font: inherit; color: var(--fg); background: var(--input-bg); border: 1px solid var(--line);
   border-radius: 4px; padding: 8px 10px; min-width: 0;
 }
-input:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-textarea { resize: vertical; text-transform: none; letter-spacing: 0; }
+input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button {
   font: 600 .95rem var(--font-body); border-radius: 4px; padding: 10px 14px; cursor: pointer;
   border: 1px solid var(--line); background: var(--panel); color: var(--fg);
 }
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 button:hover { filter: brightness(1.06); }
+button:disabled { opacity: .4; cursor: default; }
 .note { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; background: var(--need-bg); color: var(--need-fg); border-radius: 4px; padding: 8px 12px; font-size: .9rem; }
 .note button { padding: 6px 10px; }
+.help { font-size: .85rem; color: var(--muted); margin: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.swatch { display: inline-block; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); vertical-align: -2px; }
 
+/* Count mode tabs */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: var(--panel); color: var(--muted); padding: 10px 8px; }
+.tabs button + button { border-left: 1px solid var(--line); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+
+/* Pick which size or color to count */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; font-weight: 500; font-size: .9rem; }
+.chips button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
+.chips .done { font: 500 .72rem var(--font-mono); color: var(--muted); }
+
+/* Single-list counting */
+.count-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.count-head h3 { font-size: 1.6rem; }
+.count-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.count-list li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); border-radius: 4px; }
+.count-list li:focus-within { background: var(--accent-soft); }
+.count-list .name { display: flex; align-items: center; gap: 10px; font-weight: 600; min-width: 0; }
+.count-list .name small { display: block; font-weight: 400; }
+.count-list input { width: 5.2rem; text-align: center; font: 500 1.3rem var(--font-mono); padding: 8px 4px; }
+.step-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+/* Full grid */
 .grid-wrap { overflow-x: auto; }
 table.grid { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .grid th, .grid td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: center; vertical-align: top; }
 .grid thead th { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; }
 .grid thead small { display: block; font: 500 .72rem var(--font-mono); color: var(--muted); }
 .grid tbody th { text-align: left; white-space: nowrap; font-weight: 600; }
-.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; vertical-align: -2px; border: 1px solid var(--line); }
+.grid tbody th .swatch { margin-right: 8px; }
 .grid input { width: 3.4rem; text-align: center; font: 500 1.05rem var(--font-mono); padding: 8px 4px; }
-.grid input.low { border-color: var(--need-fg); background: var(--need-bg); }
-.grid input.out { border-color: var(--out-fg); border-style: dashed; }
 .grid tbody th, .grid thead th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; }
+
+input.low { border-color: var(--need-fg); background: var(--need-bg); }
+input.out { border-color: var(--out-fg); border-style: dashed; }
 .cell-meta { display: block; font-size: .72rem; color: var(--muted); min-height: 1.1em; margin-top: 3px; }
 .cell-meta b { color: var(--need-fg); font-weight: 600; }
 
@@ -91,13 +122,25 @@ table.grid { border-collapse: collapse; width: 100%; font-variant-numeric: tabul
 .preview { border: 1px dashed var(--line); border-radius: 4px; padding: 14px; overflow-x: auto; background: #fff; color: #1b2329; }
 .to-line { font-family: var(--font-mono); font-size: .85rem; word-break: break-all; user-select: all; }
 .toast { min-height: 1.4em; color: var(--ok-fg); font-weight: 600; margin: 0; }
+
+/* Setup: edit colors and sizes */
 details summary { cursor: pointer; font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; text-transform: uppercase; }
 details[open] summary { margin-bottom: 14px; }
-.settings { display: grid; gap: 14px; }
-.par-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.par-grid input { width: 5.5rem; font-family: var(--font-mono); }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.help { font-size: .85rem; color: var(--muted); margin: 0; }
+.settings { display: grid; gap: 22px; }
+.editor { display: grid; gap: 8px; }
+.edit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.edit-list li { display: flex; align-items: center; gap: 6px; }
+.edit-list .nm, .add-row input { flex: 1; width: 0; min-width: 0; }
+.edit-list .par { width: 4.2rem; text-align: center; font-family: var(--font-mono); }
+.edit-list button { padding: 7px 9px; font-size: .85rem; }
+.edit-list button.icon { width: 2.1rem; padding: 7px 0; }
+.edit-list button.confirm { background: var(--out-fg); border-color: var(--out-fg); color: var(--panel); }
+.edit-head { display: flex; gap: 6px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-left: 4.6rem; }
+.edit-head span:first-child { flex: 1; }
+.add-row { display: flex; gap: 6px; }
+
+.field-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.field-row label { flex: 1 1 14rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -119,8 +162,13 @@ details[open] summary { margin-bottom: 14px; }
       <span>Example: these numbers were read from a photo of the paper sheet, so a few may be off. Clear them before your real count.</span>
       <button type="button" id="clear-example">Clear and start counting</button>
     </div>
-    <p class="help">Same as the paper sheet: leave a box <b>blank</b> if there are none left, enter <b>0</b> if there's only an open box.</p>
-    <div class="grid-wrap"><table class="grid" id="grid"></table></div>
+    <div class="tabs" role="tablist" aria-label="How to count">
+      <button type="button" role="tab" id="mode-size" data-mode="size">By size</button>
+      <button type="button" role="tab" id="mode-color" data-mode="color">By color</button>
+      <button type="button" role="tab" id="mode-grid" data-mode="grid">Whole sheet</button>
+    </div>
+    <p class="help">Same as the paper sheet: leave a box <b>blank</b> if there are none left, enter <b>0</b> if there's only an open box. Press Enter (or Next on a phone keyboard) to jump to the next one.</p>
+    <div id="count-view"></div>
     <div class="row">
       <button type="button" id="clear-counts">Clear counts</button>
     </div>
@@ -146,17 +194,31 @@ details[open] summary { margin-bottom: 14px; }
 
   <section>
     <details id="settings-box">
-      <summary>Settings</summary>
+      <summary>Colors, sizes &amp; settings</summary>
       <div class="settings">
-        <label for="set-colors">Colors (one per line)<textarea id="set-colors" rows="5"></textarea></label>
-        <label for="set-sizes">Sizes (one per line)<textarea id="set-sizes" rows="5"></textarea></label>
-        <label for="set-unit">Counting in <input type="text" id="set-unit" placeholder="boxes"></label>
-        <div>
-          <p class="help">Target amount to keep on the shelf, per size. Order amount = target minus what you counted.</p>
-          <div class="par-grid" id="par-grid"></div>
+        <div class="editor">
+          <h3>Sizes</h3>
+          <p class="help">Target = how many to keep on the shelf. Order amount = target minus what you counted. Use the arrows to match the order on your shelf.</p>
+          <div class="edit-head" aria-hidden="true"><span>Name</span><span style="width:4.2rem;text-align:center">Target</span><span style="width:4.6rem"></span></div>
+          <ul class="edit-list" id="size-list"></ul>
+          <form class="add-row" id="add-size">
+            <input type="text" id="new-size" placeholder="New size, e.g. 2 inch" aria-label="New size name">
+            <button type="submit">Add size</button>
+          </form>
         </div>
-        <label for="set-to">Management email(s), comma separated<input type="text" id="set-to" placeholder="manager@company.com"></label>
-        <p class="help">Settings are saved on this device.</p>
+        <div class="editor">
+          <h3>Colors</h3>
+          <ul class="edit-list" id="color-list"></ul>
+          <form class="add-row" id="add-color">
+            <input type="text" id="new-color" placeholder="New color, e.g. Forest Green" aria-label="New color name">
+            <button type="submit">Add color</button>
+          </form>
+        </div>
+        <div class="field-row">
+          <label for="set-unit">Counting in <input type="text" id="set-unit" placeholder="boxes"></label>
+          <label for="set-to">Management email(s), comma separated <input type="text" id="set-to" placeholder="manager@company.com"></label>
+        </div>
+        <p class="help">Everything here is saved on this device. Removing a color or size also removes its counts.</p>
       </div>
     </details>
   </section>
@@ -164,30 +226,33 @@ details[open] summary { margin-bottom: 14px; }
 
 <script>
 (function () {
-  var KEY = "screwcount.v2";
-  var DEFAULTS = {
-    colors: ["Galvalume", "Polar White", "Ash Grey", "Charcoal Grey", "Black", "Hawaiian Blue", "Colony Green", "Hunter Green", "Crimson Red", "Rustic Red", "Lt Stone", "Sahara Tan", "Desert Sand", "Koko Brown", "Burnished Slate", "Matte White", "Matte Black", "Dark Bronze", "Slate Grey", "Dark Blue", "Berry", "Copper", "Cedar Smooth"],
-    sizes: ["3/4\"", "7/8\"", "1 1/2\"", "1\"", "1 1/4\""],
-    unit: "boxes",
-    par: {},
-    to: "",
-    name: ""
-  };
+  var KEY = "screwcount.v3";
+  var COLORS = ["Galvalume", "Polar White", "Ash Grey", "Charcoal Grey", "Black", "Hawaiian Blue", "Colony Green", "Hunter Green", "Crimson Red", "Rustic Red", "Lt Stone", "Sahara Tan", "Desert Sand", "Koko Brown", "Burnished Slate", "Matte White", "Matte Black", "Dark Bronze", "Slate Grey", "Dark Blue", "Berry", "Copper", "Cedar Smooth"];
+  var SIZES = ["3/4\"", "7/8\"", "1 1/2\"", "1\"", "1 1/4\""];
   // Read from a filled-in paper sheet; null = left blank. Only used as the first-run example.
   var SAMPLE = [[6, 7, 9, 3, 4], [8, 8, 3, 2, 2], [7, 8, 5, 1, 1], [6, 6, 1, 0, 1], [6, 4, 3, 1, 2], [1, 1, 0, 0, 0], [1, 1, 0, 0, 1], [2, 4, 2, 0, 6], [1, 1, 0, 8, null], [2, 2, 0, 1, 1], [4, 17, 2, 0, 2], [2, 7, 1, 0, 2], [5, 5, 1, 0, 1], [3, 3, 2, 0, 2], [9, 6, 2, 0, null], [0, 0, 0, 3, 3], [4, 4, 4, 6, 6], [4, 6, 7, 2, 2], [4, 3, 3, 0, 1], [2, 1, 1, 0, 1], [1, 1, 0, 0, 1], [4, 2, 1, null, null], [3, 3, 3, 3, null]];
-  var SWATCH = { galvalume: "#a9b0b5", "polar white": "#f4f5f2", "ash grey": "#9ea19c", "charcoal grey": "#45484a", "hawaiian blue": "#3d7fb0", "colony green": "#6e8a6a", "hunter green": "#2f4d36", "crimson red": "#9b1b22", "rustic red": "#8a3b2b", "lt stone": "#d8cfbd", "sahara tan": "#c9b08a", "desert sand": "#d6c3a0", "koko brown": "#4f3a2c", "burnished slate": "#4a4239", "matte white": "#f2f2ee", "matte black": "#222222", "dark bronze": "#3b3027", "slate grey": "#6b7175", "dark blue": "#1f3352", berry: "#6b2341", copper: "#b0673a", "cedar smooth": "#a0663f", black: "#1a1a1a", silver: "#c0c4c8", zinc: "#b9bec2", chrome: "#d7dadd", white: "#ffffff", red: "#c62828", blue: "#1e5bb8", green: "#2e7d32", yellow: "#f2c200", orange: "#ef6c00", purple: "#6a3fa0", brown: "#6d4c41", gold: "#c9a227", bronze: "#8c6239", gray: "#8a9096", grey: "#8a9096", pink: "#e06aa3" };
+  var SWATCH = { galvalume: "#a9b0b5", "polar white": "#f4f5f2", "ash grey": "#9ea19c", "charcoal grey": "#45484a", "hawaiian blue": "#3d7fb0", "colony green": "#6e8a6a", "hunter green": "#2f4d36", "crimson red": "#9b1b22", "rustic red": "#8a3b2b", "lt stone": "#d8cfbd", "sahara tan": "#c9b08a", "desert sand": "#d6c3a0", "koko brown": "#4f3a2c", "burnished slate": "#4a4239", "matte white": "#f2f2ee", "matte black": "#222222", "dark bronze": "#3b3027", "slate grey": "#6b7175", "dark blue": "#1f3352", berry: "#6b2341", copper: "#b0673a", "cedar smooth": "#a0663f", black: "#1a1a1a", white: "#ffffff", red: "#c62828", blue: "#1e5bb8", green: "#2e7d32", yellow: "#f2c200", tan: "#c9b08a", brown: "#5a4030", grey: "#8a9096", gray: "#8a9096" };
 
-  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } }
+  function load(k) { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
-  var saved = load();
-  var state = saved || { settings: JSON.parse(JSON.stringify(DEFAULTS)), counts: {}, last: null, example: true };
-  var S = state.settings;
-  S.sizes.forEach(function (s) { if (S.par[s] == null) S.par[s] = 3; });
-  if (!saved) {
-    S.colors.forEach(function (c, i) { S.sizes.forEach(function (s, j) { var v = SAMPLE[i] && SAMPLE[i][j]; state.counts[c + "|" + s] = v == null ? "" : String(v); }); });
+  function fresh() {
+    var st = { seq: 0, colors: [], sizes: [], counts: {}, last: null, unit: "boxes", to: "", name: "", mode: "size", example: true };
+    COLORS.forEach(function (n) { st.colors.push({ id: "c" + (++st.seq), name: n }); });
+    SIZES.forEach(function (n) { st.sizes.push({ id: "s" + (++st.seq), name: n, par: 3 }); });
+    st.colors.forEach(function (c, i) { st.sizes.forEach(function (s, j) { var v = SAMPLE[i] && SAMPLE[i][j]; st.counts[c.id + "|" + s.id] = v == null ? "" : String(v); }); });
+    return st;
+  }
+  // Carry over the email, name, unit and targets from the previous version of this page.
+  function migrate(st) {
+    var old = load("screwcount.v2"); if (!old || !old.settings) return st;
+    var o = old.settings;
+    st.to = o.to || ""; st.name = o.name || ""; st.unit = o.unit || "boxes";
+    st.sizes.forEach(function (s) { if (o.par && o.par[s.name] != null) s.par = +o.par[s.name] || 0; });
+    return st;
   }
 
+  var state = load(KEY) || migrate(fresh());
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch]; }); }
   function mondayOf(d) { var x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
@@ -198,77 +263,127 @@ details[open] summary { margin-bottom: 14px; }
     return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   }
   function num(v) { return v === "" || v == null || isNaN(+v) ? null : +v; }
+  function key(c, s) { return c.id + "|" + s.id; }
   // Sheet convention: blank = none left, 0 = only an open box left. Both count as 0 full boxes.
   function boxes(k) { return num(state.counts[k]) || 0; }
   function stock(k) { var v = num(state.counts[k]); return v == null ? "out" : v === 0 ? "open" : "ok"; }
   function shown(k) { var st = stock(k); return st === "out" ? "OUT" : st === "open" ? "open box" : String(num(state.counts[k])); }
+  function swatch(name) { return SWATCH[name.toLowerCase().trim()] || "transparent"; }
+  function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return i; return -1; }
 
   $("count-date").value = state.date || isoDate(mondayOf(new Date()));
-  $("counted-by").value = S.name || "";
+  $("counted-by").value = state.name || "";
 
   function computeOrders() {
     var out = [];
-    S.colors.forEach(function (c) {
-      S.sizes.forEach(function (s) {
-        var k = c + "|" + s, have = boxes(k), par = num(S.par[s]) || 0;
-        if (have < par) out.push({ color: c, size: s, have: have, label: shown(k), out: stock(k) === "out", par: par, order: par - have });
+    state.colors.forEach(function (c) {
+      state.sizes.forEach(function (s) {
+        var k = key(c, s), have = boxes(k), par = num(s.par) || 0;
+        if (have < par) out.push({ color: c.name, size: s.name, have: have, label: shown(k), out: stock(k) === "out", par: par, order: par - have });
       });
     });
     return out;
   }
 
+  function countInput(c, s, label, cls) {
+    var k = key(c, s);
+    return "<input class=\"" + cls + "\" id=\"in-" + c.id + "-" + s.id + "\" data-key=\"" + k + "\" inputmode=\"numeric\" pattern=\"[0-9]*\" enterkeyhint=\"next\" autocomplete=\"off\" aria-label=\"" + esc(label) + "\" value=\"" + esc(state.counts[k] || "") + "\">";
+  }
+  function meta(c, s) { return "<span class=\"cell-meta\" id=\"m-" + c.id + "-" + s.id + "\"></span>"; }
+
+  // ---- Count views ----
+  function renderView() {
+    ["size", "color", "grid"].forEach(function (m) { $("mode-" + m).setAttribute("aria-selected", String(state.mode === m)); });
+    if (state.mode === "grid") return renderGrid();
+    var bySize = state.mode === "size";
+    var list = bySize ? state.sizes : state.colors;
+    var other = bySize ? state.colors : state.sizes;
+    var selKey = bySize ? "selSize" : "selColor";
+    if (byId(list, state[selKey]) < 0) state[selKey] = list[0] && list[0].id;
+    var idx = byId(list, state[selKey]);
+    if (idx < 0 || !other.length) { $("count-view").innerHTML = "<p class=\"help\">Add at least one color and one size under Colors, sizes &amp; settings.</p>"; return; }
+    var sel = list[idx];
+
+    var h = "<div class=\"chips\" role=\"group\" aria-label=\"" + (bySize ? "Pick a size" : "Pick a color") + "\">";
+    list.forEach(function (item) {
+      var filled = other.filter(function (o) { var k = bySize ? key(o, item) : key(item, o); return state.counts[k] != null && state.counts[k] !== ""; }).length;
+      h += "<button type=\"button\" data-pick=\"" + item.id + "\" aria-pressed=\"" + (item.id === sel.id) + "\">" +
+        (bySize ? "" : "<span class=\"swatch\" style=\"background:" + swatch(item.name) + "\"></span>") +
+        esc(item.name) + " <span class=\"done\">" + filled + "/" + other.length + "</span></button>";
+    });
+    h += "</div><div class=\"count-head\"><h3>" + (bySize ? "" : "<span class=\"swatch\" style=\"background:" + swatch(sel.name) + ";width:18px;height:18px;margin-right:8px\"></span>") + esc(sel.name) + "</h3>" +
+      "<span class=\"help\">" + (bySize ? "target " + esc(sel.par) + " " + esc(state.unit) + " · go color by color" : "go size by size") + "</span></div><ul class=\"count-list\">";
+    other.forEach(function (o) {
+      var c = bySize ? o : sel, s = bySize ? sel : o;
+      h += "<li><span class=\"name\">" + (bySize ? "<span class=\"swatch\" style=\"background:" + swatch(c.name) + "\"></span>" : "") +
+        "<span>" + esc(o.name) + (bySize ? "" : " <small class=\"help\">target " + esc(s.par) + "</small>") + meta(c, s) + "</span></span>" +
+        countInput(c, s, c.name + " " + s.name, "") + "</li>";
+    });
+    var prev = list[idx - 1], next = list[idx + 1];
+    h += "</ul><div class=\"step-nav\">" +
+      "<button type=\"button\" data-pick=\"" + (prev ? prev.id : "") + "\"" + (prev ? "" : " disabled") + ">← " + (prev ? esc(prev.name) : (bySize ? "First size" : "First color")) + "</button>" +
+      "<button type=\"button\" class=\"primary\" id=\"next-group\" data-pick=\"" + (next ? next.id : "") + "\"" + (next ? "" : " disabled") + ">" + (next ? "Next: " + esc(next.name) + " →" : (bySize ? "Last size" : "Last color")) + "</button></div>";
+    $("count-view").innerHTML = h;
+    updateCells();
+  }
+
   function renderGrid() {
-    var h = "<thead><tr><th scope=\"col\"><span class=\"sr\">Color</span></th>";
-    S.sizes.forEach(function (s) { h += "<th scope=\"col\">" + esc(s) + "<small>target " + esc(S.par[s]) + "</small></th>"; });
+    var h = "<div class=\"grid-wrap\"><table class=\"grid\"><thead><tr><th scope=\"col\"><span class=\"sr\">Color</span></th>";
+    state.sizes.forEach(function (s) { h += "<th scope=\"col\">" + esc(s.name) + "<small>target " + esc(s.par) + "</small></th>"; });
     h += "</tr></thead><tbody>";
-    S.colors.forEach(function (c, i) {
-      var sw = SWATCH[c.toLowerCase().trim()] || "transparent";
-      h += "<tr><th scope=\"row\"><span class=\"swatch\" style=\"background:" + sw + "\"></span>" + esc(c) + "</th>";
-      S.sizes.forEach(function (s, j) {
-        var k = c + "|" + s;
-        h += "<td><input id=\"c-" + i + "-" + j + "\" data-key=\"" + esc(k) + "\" inputmode=\"numeric\" pattern=\"[0-9]*\" aria-label=\"" + esc(c + " " + s) + "\" value=\"" + esc(state.counts[k] || "") + "\"><span class=\"cell-meta\" id=\"m-" + i + "-" + j + "\"></span></td>";
-      });
+    state.colors.forEach(function (c) {
+      h += "<tr><th scope=\"row\"><span class=\"swatch\" style=\"background:" + swatch(c.name) + "\"></span>" + esc(c.name) + "</th>";
+      state.sizes.forEach(function (s) { h += "<td>" + countInput(c, s, c.name + " " + s.name, "") + meta(c, s) + "</td>"; });
       h += "</tr>";
     });
-    $("grid").innerHTML = h + "</tbody>";
+    $("count-view").innerHTML = h + "</tbody></table></div>";
     updateCells();
   }
 
   function updateCells() {
     var last = state.last && state.last.counts || {};
-    S.colors.forEach(function (c, i) {
-      S.sizes.forEach(function (s, j) {
-        var k = c + "|" + s, have = boxes(k), par = num(S.par[s]) || 0, st = stock(k);
-        var low = have < par;
-        $("c-" + i + "-" + j).classList.toggle("low", low);
-        $("c-" + i + "-" + j).classList.toggle("out", st === "out");
+    state.colors.forEach(function (c) {
+      state.sizes.forEach(function (s) {
+        var inp = $("in-" + c.id + "-" + s.id); if (!inp) return;
+        var k = key(c, s), have = boxes(k), par = num(s.par) || 0, st = stock(k), low = have < par;
+        inp.classList.toggle("low", low);
+        inp.classList.toggle("out", st === "out");
         var tag = st === "out" ? "out, " : st === "open" ? "open box, " : "";
-        var meta = low ? "<b>" + tag + "order " + (par - have) + "</b>" : "";
-        if (!low && last[k] != null && last[k] !== "") meta = "last " + esc(last[k]);
-        $("m-" + i + "-" + j).innerHTML = meta;
+        var m = low ? "<b>" + tag + "order " + (par - have) + "</b>" : "";
+        if (!low && last[k] != null && last[k] !== "") m = "last " + esc(last[k]);
+        $("m-" + c.id + "-" + s.id).innerHTML = m;
       });
     });
+    var chips = $("count-view").querySelectorAll(".chips button");
+    if (chips.length) {
+      var bySize = state.mode === "size", other = bySize ? state.colors : state.sizes;
+      Array.prototype.forEach.call(chips, function (b) {
+        var id = b.dataset.pick, filled = other.filter(function (o) { var k = bySize ? o.id + "|" + id : id + "|" + o.id; return state.counts[k] != null && state.counts[k] !== ""; }).length;
+        b.querySelector(".done").textContent = filled + "/" + other.length;
+      });
+    }
   }
 
   function renderOrders() {
     var o = computeOrders();
     $("order-list").innerHTML = o.length
       ? "<ul class=\"orders\">" + o.map(function (r) {
-          return "<li" + (r.out ? " class=\"is-out\"" : "") + "><span>" + esc(r.color + " " + r.size) + " <small>(have " + esc(r.label) + ", target " + r.par + ")</small></span><span>" + r.order + " " + esc(S.unit) + "</span></li>";
+          return "<li" + (r.out ? " class=\"is-out\"" : "") + "><span>" + esc(r.color + " " + r.size) + " <small>(have " + esc(r.label) + ", target " + r.par + ")</small></span><span>" + r.order + " " + esc(state.unit) + "</span></li>";
         }).join("") + "</ul>"
       : "<p class=\"all-good\">Everything is at or above target. Nothing to order.</p>";
   }
 
+  // ---- Email ----
   function subject() {
     var o = computeOrders();
     return "Screw inventory, week of " + niceDate($("count-date").value) + " (" + (o.length ? o.length + " to order" : "nothing to order") + ")";
   }
 
   function emailHtml() {
-    var o = computeOrders(), td = "padding:6px 10px;border:1px solid #d3dade;", u = esc(S.unit);
+    var o = computeOrders(), td = "padding:6px 10px;border:1px solid #d3dade;", u = esc(state.unit);
     var h = "<div style=\"font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1b2329\">";
     h += "<p style=\"margin:0 0 4px\"><b>Screw inventory, week of " + esc(niceDate($("count-date").value)) + "</b></p>";
-    if (S.name) h += "<p style=\"margin:0 0 12px;color:#5d6b75\">Counted by " + esc(S.name) + "</p>";
+    if (state.name) h += "<p style=\"margin:0 0 12px;color:#5d6b75\">Counted by " + esc(state.name) + "</p>";
     h += "<p style=\"margin:12px 0 6px\"><b>To order</b></p>";
     if (o.length) {
       h += "<table style=\"border-collapse:collapse;margin-bottom:16px\"><tr style=\"background:#1d5a85;color:#fff\"><th style=\"" + td + "text-align:left\">Color</th><th style=\"" + td + "text-align:left\">Size</th><th style=\"" + td + "\">On hand</th><th style=\"" + td + "\">Target</th><th style=\"" + td + "\">Order</th></tr>";
@@ -280,12 +395,12 @@ details[open] summary { margin-bottom: 14px; }
       h += "<p style=\"margin:0 0 16px;color:#2d6a3e\">Nothing to order this week.</p>";
     }
     h += "<p style=\"margin:0 0 6px\"><b>Full count</b> (" + u + " on hand)</p><table style=\"border-collapse:collapse\"><tr style=\"background:#eef1f3\"><th style=\"" + td + "\"></th>";
-    S.sizes.forEach(function (s) { h += "<th style=\"" + td + "\">" + esc(s) + "</th>"; });
+    state.sizes.forEach(function (s) { h += "<th style=\"" + td + "\">" + esc(s.name) + "</th>"; });
     h += "</tr>";
-    S.colors.forEach(function (c) {
-      h += "<tr><th style=\"" + td + "text-align:left\">" + esc(c) + "</th>";
-      S.sizes.forEach(function (s) {
-        var k = c + "|" + s, low = boxes(k) < (num(S.par[s]) || 0);
+    state.colors.forEach(function (c) {
+      h += "<tr><th style=\"" + td + "text-align:left\">" + esc(c.name) + "</th>";
+      state.sizes.forEach(function (s) {
+        var k = key(c, s), low = boxes(k) < (num(s.par) || 0);
         h += "<td style=\"" + td + "text-align:center" + (low ? ";background:#fff1d6;font-weight:bold" : "") + (stock(k) === "out" ? ";color:#b3261e" : "") + "\">" + esc(shown(k)) + "</td>";
       });
       h += "</tr>";
@@ -296,34 +411,99 @@ details[open] summary { margin-bottom: 14px; }
   function emailText() {
     var o = computeOrders(), lines = [];
     lines.push("Screw inventory, week of " + niceDate($("count-date").value));
-    if (S.name) lines.push("Counted by " + S.name);
+    if (state.name) lines.push("Counted by " + state.name);
     lines.push("", "TO ORDER");
-    if (o.length) o.forEach(function (r) { lines.push("- " + r.color + " " + r.size + ": order " + r.order + " " + S.unit + " (have " + r.label + ", target " + r.par + ")"); });
+    if (o.length) o.forEach(function (r) { lines.push("- " + r.color + " " + r.size + ": order " + r.order + " " + state.unit + " (have " + r.label + ", target " + r.par + ")"); });
     else lines.push("Nothing to order this week.");
-    lines.push("", "FULL COUNT (" + S.unit + " on hand)");
-    S.colors.forEach(function (c) {
-      lines.push(c + ": " + S.sizes.map(function (s) { return s + " = " + shown(c + "|" + s); }).join(", "));
+    lines.push("", "FULL COUNT (" + state.unit + " on hand)");
+    state.colors.forEach(function (c) {
+      lines.push(c.name + ": " + state.sizes.map(function (s) { return s.name + " = " + shown(key(c, s)); }).join(", "));
     });
     return lines.join("\n");
   }
 
   function renderEmail() {
     $("preview").innerHTML = "<p style=\"margin:0 0 10px;font:600 13px Segoe UI,Arial,sans-serif;color:#5d6b75\">Subject: " + esc(subject()) + "</p>" + emailHtml();
-    $("to-line").textContent = S.to || "(add management email in Settings below)";
+    $("to-line").textContent = state.to || "(add management email under Colors, sizes & settings)";
   }
 
+  // ---- Colors & sizes editor ----
+  function renderEditors() {
+    function rows(list, kind) {
+      return list.map(function (it, i) {
+        return "<li data-kind=\"" + kind + "\" data-id=\"" + it.id + "\">" +
+          "<button type=\"button\" class=\"icon\" data-act=\"up\" aria-label=\"Move " + esc(it.name) + " up\"" + (i ? "" : " disabled") + ">↑</button>" +
+          "<button type=\"button\" class=\"icon\" data-act=\"down\" aria-label=\"Move " + esc(it.name) + " down\"" + (i < list.length - 1 ? "" : " disabled") + ">↓</button>" +
+          "<input class=\"nm\" id=\"nm-" + it.id + "\" value=\"" + esc(it.name) + "\" aria-label=\"" + kind + " name\">" +
+          (kind === "size" ? "<input class=\"par\" id=\"par-" + it.id + "\" inputmode=\"numeric\" value=\"" + esc(it.par) + "\" aria-label=\"Target for " + esc(it.name) + "\">" : "") +
+          "<button type=\"button\" data-act=\"remove\">Remove</button></li>";
+      }).join("");
+    }
+    $("size-list").innerHTML = rows(state.sizes, "size");
+    $("color-list").innerHTML = rows(state.colors, "color");
+  }
+
+  function listFor(kind) { return kind === "size" ? state.sizes : state.colors; }
+  function dropCounts(kind, id) {
+    Object.keys(state.counts).forEach(function (k) { var p = k.split("|"); if ((kind === "color" ? p[0] : p[1]) === id) delete state.counts[k]; });
+  }
+
+  function onEditorClick(e) {
+    var b = e.target.closest("button[data-act]"); if (!b) return;
+    var li = b.closest("li"), kind = li.dataset.kind, list = listFor(kind), i = byId(list, li.dataset.id);
+    var act = b.dataset.act;
+    if (act === "remove") {
+      if (!b.classList.contains("confirm")) {
+        b.classList.add("confirm"); b.textContent = "Tap to confirm";
+        setTimeout(function () { if (b.isConnected) { b.classList.remove("confirm"); b.textContent = "Remove"; } }, 4000);
+        return;
+      }
+      dropCounts(kind, list[i].id);
+      list.splice(i, 1);
+      toast("Removed.");
+    } else {
+      var j = act === "up" ? i - 1 : i + 1;
+      if (j < 0 || j >= list.length) return;
+      var t = list[i]; list[i] = list[j]; list[j] = t;
+    }
+    rebuild();
+    var again = document.querySelector("#" + kind + "-list li[data-id=\"" + (list[act === "remove" ? Math.min(i, list.length - 1) : (act === "up" ? i - 1 : i + 1)] || {}).id + "\"] button[data-act=\"" + act + "\"]");
+    if (again && !again.disabled) again.focus();
+  }
+
+  function onEditorChange(e) {
+    var li = e.target.closest("li"); if (!li) return;
+    var list = listFor(li.dataset.kind), it = list[byId(list, li.dataset.id)];
+    if (e.target.classList.contains("nm")) {
+      var v = e.target.value.trim();
+      if (!v) { e.target.value = it.name; return; }
+      it.name = v;
+    } else if (e.target.classList.contains("par")) {
+      e.target.value = e.target.value.replace(/[^0-9]/g, "");
+      it.par = e.target.value === "" ? 0 : +e.target.value;
+    }
+    renderView(); refresh();
+  }
+
+  function addItem(kind, input) {
+    var v = input.value.trim(); if (!v) { input.focus(); return; }
+    var list = listFor(kind);
+    if (list.some(function (x) { return x.name.toLowerCase() === v.toLowerCase(); })) { toast("\"" + v + "\" is already on the list."); return; }
+    var it = { id: (kind === "size" ? "s" : "c") + (++state.seq), name: v };
+    if (kind === "size") it.par = 3;
+    list.push(it);
+    input.value = "";
+    rebuild(); input.focus();
+    toast("Added " + v + ".");
+  }
+
+  // ---- Wiring ----
   function refresh() { updateCells(); renderOrders(); renderEmail(); persist(); }
-  function rebuild() { renderGrid(); renderPar(); refresh(); }
-
-  function renderPar() {
-    $("par-grid").innerHTML = S.sizes.map(function (s, j) {
-      return "<label for=\"par-" + j + "\">" + esc(s) + "<input id=\"par-" + j + "\" data-size=\"" + esc(s) + "\" inputmode=\"numeric\" value=\"" + esc(S.par[s]) + "\"></label>";
-    }).join("");
-  }
-
+  function rebuild() { renderView(); renderEditors(); refresh(); }
   function toast(msg) { $("toast").textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(function () { $("toast").textContent = ""; }, 5000); }
   function rememberAsLast() { state.last = { date: $("count-date").value, counts: JSON.parse(JSON.stringify(state.counts)) }; persist(); }
   function setExample(on) { state.example = on; $("example-note").hidden = !on; }
+  function firstInput() { var i = $("count-view").querySelector("input"); if (i) { i.focus(); i.select(); } }
 
   function selectPreviewAndCopy() {
     var r = document.createRange(); r.selectNodeContents($("preview"));
@@ -332,20 +512,32 @@ details[open] summary { margin-bottom: 14px; }
     return ok;
   }
 
-  $("grid").addEventListener("input", function (e) {
+  document.querySelector(".tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-mode]"); if (!b) return;
+    state.mode = b.dataset.mode; renderView(); persist();
+  });
+  $("count-view").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-pick]"); if (!b || !b.dataset.pick) return;
+    state[state.mode === "size" ? "selSize" : "selColor"] = b.dataset.pick;
+    renderView(); persist(); firstInput();
+  });
+  $("count-view").addEventListener("input", function (e) {
     var k = e.target.dataset.key; if (!k) return;
     e.target.value = e.target.value.replace(/[^0-9]/g, "");
     state.counts[k] = e.target.value;
     refresh();
   });
-  $("grid").addEventListener("keydown", function (e) {
-    if (e.key !== "Enter") return;
-    var inputs = Array.prototype.slice.call($("grid").querySelectorAll("input"));
-    var i = inputs.indexOf(e.target); if (i > -1 && inputs[i + 1]) { e.preventDefault(); inputs[i + 1].focus(); inputs[i + 1].select(); }
+  $("count-view").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !e.target.dataset.key) return;
+    e.preventDefault();
+    var inputs = Array.prototype.slice.call($("count-view").querySelectorAll("input"));
+    var i = inputs.indexOf(e.target);
+    if (inputs[i + 1]) { inputs[i + 1].focus(); inputs[i + 1].select(); }
+    else if ($("next-group") && !$("next-group").disabled) $("next-group").focus();
   });
   $("count-date").addEventListener("change", function () { state.date = this.value; refresh(); });
-  $("counted-by").addEventListener("input", function () { S.name = this.value.trim(); refresh(); });
-  $("clear-example").addEventListener("click", function () { state.counts = {}; setExample(false); rebuild(); $("c-0-0").focus(); });
+  $("counted-by").addEventListener("input", function () { state.name = this.value.trim(); refresh(); });
+  $("clear-example").addEventListener("click", function () { state.counts = {}; setExample(false); rebuild(); firstInput(); });
   var clearArmed = false;
   $("clear-counts").addEventListener("click", function () {
     if (!clearArmed) { clearArmed = true; this.textContent = "Tap again to clear all counts"; var b = this; setTimeout(function () { clearArmed = false; b.textContent = "Clear counts"; }, 4000); return; }
@@ -355,12 +547,13 @@ details[open] summary { margin-bottom: 14px; }
   $("copy-email").addEventListener("click", function () {
     var html = $("preview").innerHTML, text = "Subject: " + subject() + "\n\n" + emailText();
     rememberAsLast();
-    var done = function () { toast("Copied. Paste it into a new email to " + (S.to || "management") + "."); };
+    var done = function () { toast("Copied. Paste it into a new email to " + (state.to || "management") + "."); };
+    var fail = function () { toast("Couldn't copy automatically. The email is selected below; press Ctrl+C (or long-press, Copy)."); };
     if (navigator.clipboard && window.ClipboardItem) {
       navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }) })])
-        .then(done, function () { selectPreviewAndCopy() ? done() : toast("Couldn't copy automatically. The email is selected below; press Ctrl+C (or long-press, Copy)."); });
+        .then(done, function () { selectPreviewAndCopy() ? done() : fail(); });
     } else {
-      selectPreviewAndCopy() ? done() : toast("Couldn't copy automatically. The email is selected below; press Ctrl+C (or long-press, Copy).");
+      selectPreviewAndCopy() ? done() : fail();
     }
   });
   $("copy-text").addEventListener("click", function () {
@@ -371,30 +564,21 @@ details[open] summary { margin-bottom: 14px; }
   });
   $("open-mail").addEventListener("click", function () {
     rememberAsLast();
-    var href = "mailto:" + encodeURIComponent(S.to || "").replace(/%2C/gi, ",").replace(/%40/g, "@") + "?subject=" + encodeURIComponent(subject()) + "&body=" + encodeURIComponent(emailText());
+    var href = "mailto:" + encodeURIComponent(state.to || "").replace(/%2C/gi, ",").replace(/%40/g, "@") + "?subject=" + encodeURIComponent(subject()) + "&body=" + encodeURIComponent(emailText());
     window.location.href = href;
     toast("If no email window opened, use \"Copy formatted email\" instead.");
   });
 
-  function lines(v) { return v.split("\n").map(function (x) { return x.trim(); }).filter(Boolean); }
-  $("set-colors").value = S.colors.join("\n");
-  $("set-sizes").value = S.sizes.join("\n");
-  $("set-unit").value = S.unit;
-  $("set-to").value = S.to;
-  $("set-colors").addEventListener("change", function () { S.colors = lines(this.value); rebuild(); });
-  $("set-sizes").addEventListener("change", function () {
-    S.sizes = lines(this.value);
-    S.sizes.forEach(function (s) { if (S.par[s] == null) S.par[s] = 10; });
-    rebuild();
+  ["size-list", "color-list"].forEach(function (id) {
+    $(id).addEventListener("click", onEditorClick);
+    $(id).addEventListener("change", onEditorChange);
   });
-  $("set-unit").addEventListener("input", function () { S.unit = this.value.trim() || "boxes"; renderOrders(); renderEmail(); persist(); });
-  $("set-to").addEventListener("input", function () { S.to = this.value.trim(); renderEmail(); persist(); });
-  $("par-grid").addEventListener("input", function (e) {
-    var s = e.target.dataset.size; if (s == null) return;
-    e.target.value = e.target.value.replace(/[^0-9]/g, "");
-    S.par[s] = e.target.value === "" ? 0 : +e.target.value;
-    renderGrid(); refresh();
-  });
+  $("add-size").addEventListener("submit", function (e) { e.preventDefault(); addItem("size", $("new-size")); });
+  $("add-color").addEventListener("submit", function (e) { e.preventDefault(); addItem("color", $("new-color")); });
+  $("set-unit").value = state.unit;
+  $("set-to").value = state.to;
+  $("set-unit").addEventListener("input", function () { state.unit = this.value.trim() || "boxes"; renderView(); refresh(); });
+  $("set-to").addEventListener("input", function () { state.to = this.value.trim(); renderEmail(); persist(); });
 
   setExample(!!state.example);
   rebuild();
