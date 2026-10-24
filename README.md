@@ -14,7 +14,9 @@ Everything is in `index.html`. Open it in any browser, or host it on any static 
 ## Strategies
 
 - **Option A, rack-stock bonus**: each cut length is its own batch; spare width is slit into 13" / 6 3/4" rack strips where the 7-strip limit allows.
-- **Option B, length bonus**: shorter pieces fill spare room in passes at a longer length already on the order. Shown only when it saves coil. Never longer than the longest piece ordered.
+- **Option B, length bonus**: shorter pieces fill spare room in passes at a longer length already on the order, then any remaining spare width can go to rack flats (toggle on the plan). Shown only when it saves coil. Never longer than the longest piece ordered.
+
+Rack flat bonus has two settings on the plan: **Most rack width** (two 6 3/4" where they fit) or **Prefer 13"** (one 13" for every two 6 3/4" possible, which also frees a blade).
 
 The solver minimizes passes per batch (branch-and-bound over maximal patterns with a node limit), then the number of distinct blade setups.
 

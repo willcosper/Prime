@@ -120,6 +120,14 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .pick { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
 .savings { font-weight: 600; }
 
+.rackctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.rackctl .lbl { flex-basis: 100%; }
+.seg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.seg2 button { display: flex; flex-direction: column; align-items: flex-start; border: 1px solid var(--line); background: var(--bg); border-radius: var(--radius); padding: 8px 12px; cursor: pointer; font-weight: 600; text-align: left; }
+.seg2 button small { font-weight: 500; color: var(--muted); font-size: .78rem; }
+.seg2 button[aria-checked="true"] { border-color: var(--rack); box-shadow: inset 0 0 0 1px var(--rack); }
+.chk { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .92rem; color: var(--ink); cursor: pointer; }
+.chk input { width: 18px; height: 18px; accent-color: var(--rack); }
 .plan-head { display: flex; flex-wrap: wrap; gap: 6px 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .plan-head div { display: flex; flex-direction: column; min-width: 0; }
 .plan-head b { font-weight: 600; overflow-wrap: anywhere; }
@@ -481,7 +489,13 @@ function rawPlanB(lines, W) {
 }
 
 /* ---------- Plan assembly ---------- */
-function rackFill(left, slots) {
+// pref "max": most rack width (two 6 3/4" beat one 13"). pref "13": one 13" for every two 6 3/4" possible.
+function rackFill(left, slots, pref) {
+  if (pref === "13") {
+    const a = Math.min(Math.floor(left / RACK[0]), slots);
+    const b = Math.min(Math.floor((left - a * RACK[0]) / RACK[1]), slots - a);
+    return { list: [...Array(a).fill(RACK[0]), ...Array(b).fill(RACK[1])], sum: a * RACK[0] + b * RACK[1] };
+  }
   let best = { list: [], sum: 0 };
   for (let a = 0; a * RACK[0] <= left; a++) {
     for (let b = 0; a * RACK[0] + b * RACK[1] <= left; b++) {
@@ -493,8 +507,8 @@ function rackFill(left, slots) {
   return best;
 }
 
-function buildPlan(key, raw, W) {
-  const bonusRack = key === "A";
+function buildPlan(key, raw, W, opts) {
+  const bonusRack = key === "A" || opts.rackB;
   let totalIn = 0, scrapArea = 0, totalRuns = 0, setups = 0;
   const rack = new Map();
   const batches = raw.map(b => {
@@ -504,7 +518,7 @@ function buildPlan(key, raw, W) {
       const used = strips.reduce((s, x) => s + x.u, 0);
       let left = W - used, rackList = [];
       if (rackLength(b.cut)) {
-        if (bonusRack) rackList = rackFill(left, MAX_STRIPS - strips.length).list;
+        if (bonusRack) rackList = rackFill(left, MAX_STRIPS - strips.length, opts.pref).list;
         else if (RACK.includes(left) && strips.length < MAX_STRIPS) rackList = [left];
       }
       rackList.forEach(u => { strips.push({ u, kind: "r" }); left -= u; const rk = u + "|" + b.cut; rack.set(rk, (rack.get(rk) || 0) + p.mult); });
@@ -552,11 +566,11 @@ function calculate() {
   if (!map.size && !errs.length) errs.push("Add at least one flat with a width, length and quantity.");
   if (errs.length) return { errs };
   const lines = [...map.values()];
-  const A = buildPlan("A", rawPlanA(lines, W), W);
-  let B = null;
+  const rawA = rawPlanA(lines, W);
+  let rawB = null;
   if (new Set(lines.map(l => l.cut)).size > 1) {
     const rb = rawPlanB(lines, W);
-    if (rb && rb.foot < A.totalIn) B = buildPlan("B", rb.batches, W);
+    if (rb && rb.foot < rawA.reduce((s, b) => s + b.sol.runs * b.cut, 0)) rawB = rb.batches;
   }
   const sameWidthMultiLen = (() => {
     const seen = new Map();
@@ -564,7 +578,14 @@ function calculate() {
     return [...seen.values()].some(s => s.size > 1);
   })();
   const longOrShort = lines.filter(l => l.L > 252 || l.L < 120);
-  return { W, A, B, sameWidthMultiLen, longOrShort, header: headerInfo() };
+  return buildPlans({ W, rawA, rawB, sameWidthMultiLen, longOrShort, header: headerInfo() });
+}
+
+function buildPlans(res) {
+  const opts = { pref: state.rackPref === "13" ? "13" : "max", rackB: state.rackB !== false };
+  res.A = buildPlan("A", res.rawA, res.W, opts);
+  res.B = res.rawB ? buildPlan("B", res.rawB, res.W, opts) : null;
+  return res;
 }
 
 function headerInfo() {
@@ -671,12 +692,21 @@ function renderPlan(res) {
       <p class="note savings">Option B saves <b>${fmtFt(diff)}</b> of coil (${pct.toFixed(1)}%) by cutting some shorter pieces at a longer length on the order.</p>
       <div class="compare">
         ${card(res.A, "Each length cut on its own. Banks 13\" and 6 3/4\" leftovers. Suits slow-moving colors.")}
-        ${card(res.B, "Shorter pieces get free extra length. Suits fast-moving colors with a full rack.")}
+        ${card(res.B, "Shorter pieces get free extra length" + (state.rackB !== false ? ", then spare width goes to rack flats" : "") + ". Suits fast-moving colors.")}
       </div></div>`;
   } else if (res.sameWidthMultiLen) {
     html += `<p class="note no-print">Option B (length bonus) was checked and found no way to save coil on this order, so Option A is the plan.</p>`;
   }
 
+  const pref13 = state.rackPref === "13";
+  html += `<div class="rackctl no-print">
+      <span class="lbl">Rack flat bonus</span>
+      <div class="seg2" role="radiogroup" aria-label="Rack flat bonus">
+        <button type="button" role="radio" data-pref="max" aria-checked="${!pref13}">Most rack width<small>two 6 3/4" where they fit</small></button>
+        <button type="button" role="radio" data-pref="13" aria-checked="${pref13}">Prefer 13"<small>one 13" for every two 6 3/4"</small></button>
+      </div>
+      ${res.B ? `<label class="chk"><input type="checkbox" id="rackB" ${state.rackB !== false ? "checked" : ""}> Include rack flats on Option B</label>` : ""}
+    </div>`;
   html += `<div class="plan-head">
       <div style="flex-basis:100%"><span class="lbl print-only">PRIME Slitter Optimizer</span><p class="plan-title">Cut plan</p><span class="chosen">${esc(plan.name)}</span></div>
       <div><span class="lbl">Order</span><b>${esc(h.orderNo) || "—"}</b></div>
@@ -828,7 +858,7 @@ function bind() {
   });
   $("addRow").addEventListener("click", addRow);
   const reset = () => {
-    state = { coil: state.coil, customW: state.customW, orderNo: "", customer: "", color: "", colorOther: "", rows: [blankRow(), blankRow(), blankRow()], choice: "A", example: false };
+    state = { coil: state.coil, customW: state.customW, orderNo: "", customer: "", color: "", colorOther: "", rows: [blankRow(), blankRow(), blankRow()], choice: "A", rackPref: state.rackPref, rackB: state.rackB, example: false };
     lastResult = null; save(); syncInputs();
     $("results").hidden = true; $("msg").innerHTML = ""; $("orderNo").focus();
   };
@@ -851,9 +881,14 @@ function bind() {
     }, 20);
   });
 
+  $("results").addEventListener("change", e => {
+    if (e.target.id === "rackB") { state.rackB = e.target.checked; save(); renderPlan(buildPlans(lastResult)); }
+  });
   $("results").addEventListener("click", e => {
     const ch = e.target.closest("[data-choose]");
     if (ch) { state.choice = ch.dataset.choose; save(); renderPlan(lastResult); return; }
+    const pf = e.target.closest("[data-pref]");
+    if (pf) { state.rackPref = pf.dataset.pref; save(); renderPlan(buildPlans(lastResult)); return; }
     if (e.target.id === "pdfBtn") {
       if (EMBEDDED) { showCopyBox(planText(lastResult), "Saving a PDF needs the tool opened in its own browser tab. Here is the plan as text in the meantime."); return; }
       window.print();
